@@ -3,23 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Realidad Aumentada - Cuadrado Amarillo sobre QR</title>
+    <title>AR: Cuadrado Amarillo 30cm sobre QR</title>
     <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
         body {
             margin: 0;
             overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: #111;
         }
-
-        /* Contenedor principal que ocupa toda la pantalla */
         .container {
             position: relative;
             width: 100vw;
             height: 100vh;
             overflow: hidden;
+            background: #000;
         }
-
-        /* Video de la cámara (fondo) */
         #video {
             position: absolute;
             top: 0;
@@ -27,11 +29,9 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Efecto espejo para sensación natural */
+            transform: scaleX(-1);
             z-index: 1;
         }
-
-        /* Lienzo de Three.js (AR) sobre el video */
         #canvas-ar {
             position: absolute;
             top: 0;
@@ -42,76 +42,101 @@
             z-index: 2;
             background: transparent;
         }
-
-        /* Panel de estado e instrucciones */
-        .info-panel {
+        .controls {
             position: absolute;
             bottom: 20px;
             left: 20px;
             right: 20px;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(8px);
-            border-radius: 16px;
-            padding: 12px 18px;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(12px);
+            border-radius: 24px;
+            padding: 16px;
+            z-index: 3;
             color: white;
             font-size: 14px;
             font-weight: 500;
-            z-index: 3;
-            pointer-events: none;
-            text-align: center;
-            border-left: 4px solid #FFD700;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,215,0,0.4);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+            pointer-events: auto;
+        }
+        .status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .badge {
+            background: #2c3e50;
+            padding: 6px 14px;
+            border-radius: 40px;
             font-family: monospace;
-        }
-
-        .status-badge {
-            background: #FFD700;
-            color: #1e1e2a;
-            border-radius: 20px;
-            padding: 4px 12px;
             font-weight: bold;
-            display: inline-block;
-            margin-right: 10px;
+            font-size: 13px;
         }
-
-        .instructions {
-            font-size: 12px;
-            opacity: 0.9;
+        .badge.qr {
+            background: #f1c40f;
+            color: #1e1e2a;
+        }
+        .badge.object {
+            background: #e67e22;
+        }
+        .btn-start {
+            background: #2ecc71;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 60px;
+            font-weight: bold;
+            font-size: 16px;
+            color: black;
+            cursor: pointer;
+            transition: 0.2s;
+            width: 100%;
             margin-top: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
-
+        .btn-start:hover {
+            background: #27ae60;
+            transform: scale(0.98);
+        }
+        .size-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0,0,0,0.5);
+            padding: 6px 12px;
+            border-radius: 48px;
+            margin-top: 8px;
+            justify-content: space-between;
+        }
+        .size-buttons button {
+            background: #f1c40f;
+            border: none;
+            font-size: 18px;
+            font-weight: bold;
+            width: 34px;
+            border-radius: 30px;
+            cursor: pointer;
+            margin: 0 4px;
+        }
+        .footnote {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-top: 10px;
+            text-align: center;
+        }
         button {
             pointer-events: auto;
-            background: #FFD700;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 40px;
-            font-weight: bold;
-            margin-top: 8px;
-            cursor: pointer;
-            font-family: inherit;
-            transition: 0.2s;
         }
-
-        button:hover {
-            background: #e6c200;
-            transform: scale(1.02);
-        }
-
-        @media (min-width: 768px) {
-            .info-panel {
+        @media (min-width: 640px) {
+            .controls {
                 left: auto;
                 right: 20px;
                 bottom: 20px;
-                max-width: 320px;
-                text-align: left;
+                width: 320px;
             }
-        }
-
-        .qr-size-note {
-            font-size: 10px;
-            margin-top: 6px;
-            color: #ddd;
         }
     </style>
 </head>
@@ -119,25 +144,27 @@
 <div class="container">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas-ar"></canvas>
-    <div class="info-panel">
-        <div>
-            <span class="status-badge" id="qr-status">🔍 ESCANEANDO QR</span>
-            <span id="object-status">⚪ OBJETO: OCULTO</span>
+    <div class="controls">
+        <div class="status-row">
+            <span class="badge qr" id="qr-status">🔍 QR: NO DETECTADO</span>
+            <span class="badge object" id="object-status">⚫ OBJETO: OCULTO</span>
         </div>
-        <div class="instructions">
-            📌 Apunta a un código QR impreso (tamaño físico conocido: 10cm x 10cm por defecto).<br>
-            🟨 Al detectarlo, aparecerá un cuadrado AMARILLO de 30x30 cm flotando sobre él en 3D.
+        <button id="start-camera-btn" class="btn-start">📷 INICIAR CÁMARA Y AR</button>
+        <div class="size-control">
+            <span>📏 Tamaño real del QR:</span>
+            <div class="size-buttons">
+                <button id="dec-size">−</button>
+                <strong id="qr-real-size-display">10 cm</strong>
+                <button id="inc-size">+</button>
+            </div>
         </div>
-        <div class="qr-size-note">
-            ⚙️ Ajuste de tamaño real del QR: actualmente <strong id="qr-real-size-display">10 cm</strong> 
-            <button id="inc-size" style="padding: 2px 8px; margin-left: 5px;">+</button>
-            <button id="dec-size" style="padding: 2px 8px;">-</button>
-            (cambia la precisión de la distancia)
+        <div class="footnote">
+            ✅ Apunta a un QR impreso (tamaño físico: <span id="size-note">10</span> cm de lado).<br>
+            🟨 Al detectarlo, aparecerá un cuadrado AMARILLO de <strong>30x30 cm</strong> flotando sobre él.
         </div>
     </div>
 </div>
 
-<!-- Librerías externas -->
 <script type="importmap">
     {
         "imports": {
@@ -150,185 +177,159 @@
 <script type="module">
     import * as THREE from 'three';
     import jsQR from 'jsqr';
-
-    // --- CONFIGURACIÓN PRINCIPAL ---
-    // Tamaño real del código QR impreso (en metros). 
-    // Es CRUCIAL para estimar la distancia correctamente. 
-    // Por defecto 0.1m = 10cm. El usuario puede modificarlo con los botones.
-    let realQRSizeMeters = 0.10;   // 10 cm
     
-    // Tamaño del objeto AR: cuadrado amarillo de 30 cm x 30 cm
-    const OBJECT_SIZE_METERS = 0.30;   // 30 cm
-    
-    // Parámetros de cámara (FOV vertical estimado)
-    // Se ajustará dinámicamente según el aspect ratio, pero usamos un valor típico de 65° para móviles.
-    const DEFAULT_VERTICAL_FOV_DEG = 65;
-    
-    // Elementos DOM
-    const videoElem = document.getElementById('video');
+    // ----- ELEMENTOS DOM -----
+    const video = document.getElementById('video');
     const canvasAR = document.getElementById('canvas-ar');
+    const startBtn = document.getElementById('start-camera-btn');
     const qrStatusSpan = document.getElementById('qr-status');
     const objectStatusSpan = document.getElementById('object-status');
-    const qrRealSizeDisplay = document.getElementById('qr-real-size-display');
+    const qrSizeDisplay = document.getElementById('qr-real-size-display');
+    const sizeNoteSpan = document.getElementById('size-note');
     const incBtn = document.getElementById('inc-size');
     const decBtn = document.getElementById('dec-size');
     
-    // --- INICIALIZACIÓN THREE.JS ---
-    const renderer = new THREE.WebGLRenderer({ canvas: canvasAR, alpha: true });
-    const scene = new THREE.Scene();
-    scene.background = null; // fondo transparente para ver el video
+    // ----- PARÁMETROS FÍSICOS -----
+    let realQRSizeMeters = 0.10;       // 10 cm por defecto
+    const OBJECT_SIZE_METERS = 0.30;   // 30 cm amarillo
+    const DEFAULT_VFOV_DEG = 65;       // campo visual vertical estimado
     
-    // Cámara de Three.js: se sincronizará con la cámara real mediante matriz de proyección
-    // Inicial con FOV genérico, luego se actualiza cuando el video tenga dimensiones.
-    const aspect = window.innerWidth / window.innerHeight;
-    const camera = new THREE.PerspectiveCamera(DEFAULT_VERTICAL_FOV_DEG, aspect, 0.01, 10);
-    camera.position.set(0, 0, 0);
-    camera.lookAt(0, 0, -1);
+    // ----- ESTADO -----
+    let cameraActive = false;
+    let qrDetected = false;
+    let arObject = null;           // malla Three.js
+    let scene, camera, renderer;
+    let videoWidth = 0, videoHeight = 0;
+    let focalLenPx = 800;          // se recalcula con el tamaño del video
     
-    // Iluminación para que el cuadrado amarillo se vea bien
-    const ambientLight = new THREE.AmbientLight(0x404060);
-    scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(1, 2, 1);
-    scene.add(directionalLight);
-    const backLight = new THREE.DirectionalLight(0xffcc88, 0.5);
-    backLight.position.set(-0.5, 1, -1);
-    scene.add(backLight);
+    // ----- FUNCIONES UI -----
+    function updateQRSizeUI() {
+        const cm = (realQRSizeMeters * 100).toFixed(0);
+        qrSizeDisplay.innerText = `${cm} cm`;
+        sizeNoteSpan.innerText = cm;
+    }
     
-    // Objeto principal: cuadrado plano amarillo de 30cm x 30cm
-    let arObject = null;
+    incBtn.addEventListener('click', () => {
+        realQRSizeMeters = Math.min(0.30, realQRSizeMeters + 0.01);
+        updateQRSizeUI();
+    });
+    decBtn.addEventListener('click', () => {
+        realQRSizeMeters = Math.max(0.05, realQRSizeMeters - 0.01);
+        updateQRSizeUI();
+    });
     
-    // Función para crear el cuadrado amarillo (geometría plana)
-    function createYellowSquare() {
+    // ----- INICIALIZAR THREE.JS (escena transparente) -----
+    function initThree() {
+        renderer = new THREE.WebGLRenderer({ canvas: canvasAR, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000, 0);
+        
+        scene = new THREE.Scene();
+        scene.background = null;
+        
+        // Cámara Three.js (se sincronizará con el video)
+        camera = new THREE.PerspectiveCamera(DEFAULT_VFOV_DEG, window.innerWidth / window.innerHeight, 0.01, 5);
+        camera.position.set(0, 0, 0);
+        
+        // Luces
+        const ambient = new THREE.AmbientLight(0x404060);
+        scene.add(ambient);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(1, 2, 1);
+        scene.add(dirLight);
+        const fillLight = new THREE.PointLight(0xffaa66, 0.4);
+        fillLight.position.set(0.5, 1, 0.8);
+        scene.add(fillLight);
+        
+        // Cuadrado amarillo plano (30cm x 30cm)
         const geometry = new THREE.PlaneGeometry(OBJECT_SIZE_METERS, OBJECT_SIZE_METERS);
         const material = new THREE.MeshStandardMaterial({
             color: 0xFFD700,
             emissive: 0x442200,
             emissiveIntensity: 0.2,
             metalness: 0.1,
-            roughness: 0.4,
+            roughness: 0.3,
             side: THREE.DoubleSide
         });
-        const square = new THREE.Mesh(geometry, material);
-        // Añadir un borde sutil para resaltar los bordes
-        const edgesGeo = new THREE.EdgesGeometry(geometry);
-        const edgesMat = new THREE.LineBasicMaterial({ color: 0xFFAA00 });
-        const wireframe = new THREE.LineSegments(edgesGeo, edgesMat);
-        square.add(wireframe);
-        return square;
-    }
-    
-    // --- Variables para estado del QR ---
-    let qrDetected = false;
-    let currentObjectPosition = new THREE.Vector3(0, 0, -1);
-    let currentDistance = 0.5; // distancia estimada en metros
-    let lastQRData = null;
-    
-    // Variables para cálculo de proyección
-    let videoWidth = 0, videoHeight = 0;
-    let focalLenPx = 800; // valor inicial, se recalculará dinámicamente
-    
-    // --- Helper: actualizar la visualización del tamaño real del QR ---
-    function updateQRSizeDisplay() {
-        const sizeCm = (realQRSizeMeters * 100).toFixed(0);
-        qrRealSizeDisplay.innerText = `${sizeCm} cm`;
-    }
-    
-    incBtn.addEventListener('click', () => {
-        realQRSizeMeters += 0.01; // +1 cm
-        if (realQRSizeMeters > 0.30) realQRSizeMeters = 0.30;
-        updateQRSizeDisplay();
-    });
-    
-    decBtn.addEventListener('click', () => {
-        realQRSizeMeters -= 0.01;
-        if (realQRSizeMeters < 0.05) realQRSizeMeters = 0.05;
-        updateQRSizeDisplay();
-    });
-    
-    // --- Configurar cámara Three.js basada en FOV real del video (estimación) ---
-    function updateCameraFOV(videoW, videoH) {
-        if (videoW === 0 || videoH === 0) return;
-        // Estimación de la distancia focal en píxeles: asumimos un FOV vertical típico de 65 grados
-        const vFOVRad = DEFAULT_VERTICAL_FOV_DEG * Math.PI / 180;
-        focalLenPx = (videoH / 2) / Math.tan(vFOVRad / 2);
+        arObject = new THREE.Mesh(geometry, material);
+        // Borde decorativo
+        const edges = new THREE.EdgesGeometry(geometry);
+        const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xFFAA33 }));
+        arObject.add(wire);
+        arObject.visible = false;
+        scene.add(arObject);
         
-        // Actualizar la cámara de Three.js con el mismo aspect ratio
-        const aspectCam = videoW / videoH;
-        camera.aspect = aspectCam;
-        camera.fov = DEFAULT_VERTICAL_FOV_DEG;
-        camera.updateProjectionMatrix();
+        animate();
     }
     
-    // --- Función para estimar la distancia en metros al QR usando el tamaño en píxeles ---
-    // Recibe el ancho del QR en píxeles (promedio de anchura de bounding box)
-    function estimateDistanceToQR(qrWidthPx) {
-        if (qrWidthPx <= 0 || focalLenPx <= 0) return 0.5;
-        // Fórmula: Distancia = (tamaño_real * focal_length) / tamaño_imagen
-        const distance = (realQRSizeMeters * focalLenPx) / qrWidthPx;
-        // Limitar distancia entre 0.1m y 2.5m para evitar valores extremos
-        return Math.min(2.5, Math.max(0.1, distance));
-    }
-    
-    // --- Obtener el vector dirección del rayo desde la cámara hacia las coordenadas normalizadas de la pantalla (NDC) ---
-    // (cx, cy) en rango [-1, 1], donde (-1,-1) es esquina inferior izquierda, (1,1) superior derecha
-    function getRayDirectionFromNDC(cx, cy, cameraObj) {
-        const vector = new THREE.Vector3(cx, cy, 0.5);
-        vector.unproject(cameraObj);
-        const dir = vector.sub(cameraObj.position).normalize();
-        return dir;
-    }
-    
-    // --- Actualizar la posición y orientación del objeto AR cada vez que se detecta QR ---
-    // Recibe: centro del QR en coordenadas NDC (x e y normalizados), y distancia estimada en metros
-    function updateARObjectPosition(centerNDC_x, centerNDC_y, distanceMeters) {
-        if (!arObject) return;
-        
-        // 1. Obtener dirección del rayo desde la cámara hacia ese punto en el espacio 3D
-        const rayDir = getRayDirectionFromNDC(centerNDC_x, centerNDC_y, camera);
-        // 2. Calcular posición absoluta: posición_cámara + dirección * distancia
-        const newPos = camera.position.clone().add(rayDir.clone().multiplyScalar(distanceMeters));
-        currentObjectPosition.copy(newPos);
-        arObject.position.copy(newPos);
-        
-        // 3. Hacer que el cuadrado SIEMPRE enfrente a la cámara (efecto billboard)
-        //    Esto mantiene el cuadrado legible y simula que está "sobre" el QR independientemente del ángulo,
-        //    pero respetando la profundidad y posición 3D.
-        arObject.lookAt(camera.position);
-        // Para un plano, por defecto el frente es Z positivo; pero al usar lookAt, rota adecuadamente.
-        // Pequeño ajuste: dado que planeGeometry mira hacia +Z por defecto, lookAt funciona correctamente.
-        
-        // Opcional: agregar un leve efecto de escala por distancia? No necesario, la geometría ya tiene tamaño real 30cm
-        // y la distancia es realista, por lo que la perspectiva se ajusta automáticamente.
-    }
-    
-    // --- Función para ocultar/mostrar el objeto AR ---
-    function showARObject(show) {
-        if (arObject) {
-            arObject.visible = show;
-            if (show) {
-                objectStatusSpan.innerHTML = "🟨 OBJETO: VISIBLE (30cm x 30cm)";
-                objectStatusSpan.style.color = "#FFD700";
-            } else {
-                objectStatusSpan.innerHTML = "⚪ OBJETO: OCULTO";
-                objectStatusSpan.style.color = "#ccc";
+    function animate() {
+        requestAnimationFrame(animate);
+        if (renderer && camera && scene) {
+            if (arObject && arObject.visible) {
+                // Billboard: siempre mirando a la cámara
+                arObject.lookAt(camera.position);
             }
+            renderer.render(scene, camera);
         }
     }
     
-    // --- Procesar frame del video para detectar QR y calcular pose ---
+    // ----- ACTUALIZAR PROYECCIÓN DE CÁMARA SEGÚN VIDEO -----
+    function updateCameraProjection(videoW, videoH) {
+        if (videoW === 0 || videoH === 0) return;
+        const aspect = videoW / videoH;
+        camera.aspect = aspect;
+        camera.fov = DEFAULT_VFOV_DEG;
+        camera.updateProjectionMatrix();
+        // Calcular focal length en píxeles (para fórmula distancia)
+        const vFOVrad = DEFAULT_VFOV_DEG * Math.PI / 180;
+        focalLenPx = (videoH / 2) / Math.tan(vFOVrad / 2);
+        // Ajustar tamaño del renderer al contenedor
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    
+    // ----- ESTIMAR DISTANCIA (metros) según tamaño en píxeles del QR -----
+    function estimateDistance(qrWidthPx) {
+        if (qrWidthPx <= 0 || focalLenPx <= 0) return 0.5;
+        let dist = (realQRSizeMeters * focalLenPx) / qrWidthPx;
+        return Math.min(2.0, Math.max(0.12, dist));
+    }
+    
+    // ----- CONVERTIR coordenadas píxel a NDC (rango -1..1) -----
+    function pixelToNDC(px, py, w, h) {
+        const ndcX = (px / w) * 2 - 1;
+        const ndcY = -(py / h) * 2 + 1;
+        return { x: ndcX, y: ndcY };
+    }
+    
+    // ----- Obtener dirección 3D desde cámara hacia NDC -----
+    function getRayDirection(ndcX, ndcY, cam) {
+        const vec = new THREE.Vector3(ndcX, ndcY, 0.5);
+        vec.unproject(cam);
+        return vec.sub(cam.position).normalize();
+    }
+    
+    // ----- POSICIONAR el cuadrado en el mundo 3D (sobre el QR) -----
+    function positionARObject(centerNDC, distanceMeters) {
+        if (!arObject) return;
+        const direction = getRayDirection(centerNDC.x, centerNDC.y, camera);
+        const newPos = camera.position.clone().add(direction.multiplyScalar(distanceMeters));
+        arObject.position.copy(newPos);
+        // Orientación: siempre hacia la cámara, pero el plano mira hacia +Z por defecto
+        arObject.lookAt(camera.position);
+    }
+    
+    // ----- DETECTAR QR EN UN FRAME (video) -----
     async function detectQRFromVideo() {
-        if (videoWidth === 0 || videoHeight === 0) return;
+        if (!cameraActive || videoWidth === 0 || videoHeight === 0) return;
         
-        // Crear un canvas temporal para capturar el frame actual
+        // Capturar frame actual
         const canvas = document.createElement('canvas');
         canvas.width = videoWidth;
         canvas.height = videoHeight;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(videoElem, 0, 0, videoWidth, videoHeight);
+        ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
         const imageData = ctx.getImageData(0, 0, videoWidth, videoHeight);
         
-        // Ejecutar jsQR para buscar código QR en el frame
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
             inversionAttempts: "dontInvert",
         });
@@ -337,192 +338,125 @@
             // QR detectado
             if (!qrDetected) {
                 qrDetected = true;
-                qrStatusSpan.innerHTML = "✅ QR DETECTADO";
-                qrStatusSpan.style.backgroundColor = "#2ecc71";
-                showARObject(true);
+                qrStatusSpan.innerHTML = "✅ QR DETECTADO - Posicionando objeto";
+                qrStatusSpan.style.background = "#2ecc71";
+                arObject.visible = true;
+                objectStatusSpan.innerHTML = "🟨 OBJETO VISIBLE (30cm)";
+                objectStatusSpan.style.background = "#f39c12";
             }
             
-            // Obtener los 4 puntos de las esquinas del QR
+            // Calcular ancho promedio del QR en píxeles
             const { location } = code;
-            const topLeft = location.topLeftCorner;
-            const topRight = location.topRightCorner;
-            const bottomRight = location.bottomRightCorner;
-            const bottomLeft = location.bottomLeftCorner;
+            const topW = Math.hypot(location.topRightCorner.x - location.topLeftCorner.x, location.topRightCorner.y - location.topLeftCorner.y);
+            const bottomW = Math.hypot(location.bottomRightCorner.x - location.bottomLeftCorner.x, location.bottomRightCorner.y - location.bottomLeftCorner.y);
+            const avgWidthPx = (topW + bottomW) / 2;
             
-            // Calcular el ancho en píxeles del QR (promedio entre ancho superior y ancho inferior)
-            const widthTop = Math.hypot(topRight.x - topLeft.x, topRight.y - topLeft.y);
-            const widthBottom = Math.hypot(bottomRight.x - bottomLeft.x, bottomRight.y - bottomLeft.y);
-            const avgWidthPx = (widthTop + widthBottom) / 2;
+            // Centro del QR (píxeles)
+            const cx = (location.topLeftCorner.x + location.topRightCorner.x + location.bottomRightCorner.x + location.bottomLeftCorner.x) / 4;
+            const cy = (location.topLeftCorner.y + location.topRightCorner.y + location.bottomLeftCorner.y + location.bottomRightCorner.y) / 4;
             
-            // Calcular el centro del QR en coordenadas de píxeles
-            const centerX_px = (topLeft.x + topRight.x + bottomRight.x + bottomLeft.x) / 4;
-            const centerY_px = (topLeft.y + topRight.y + bottomLeft.y + bottomRight.y) / 4;
+            const ndc = pixelToNDC(cx, cy, videoWidth, videoHeight);
+            const distance = estimateDistance(avgWidthPx);
             
-            // Convertir centro a coordenadas NDC (Normalized Device Coordinates) para Three.js
-            // Rango X: -1 (izquierda) a 1 (derecha), Y: -1 (abajo) a 1 (arriba)
-            const ndc_x = (centerX_px / videoWidth) * 2 - 1;
-            const ndc_y = -(centerY_px / videoHeight) * 2 + 1;
+            positionARObject(ndc, distance);
             
-            // Estimar distancia real al QR usando el ancho en píxeles y el tamaño físico real
-            const distanceMeters = estimateDistanceToQR(avgWidthPx);
-            currentDistance = distanceMeters;
-            
-            // Actualizar la posición del objeto AR en 3D
-            updateARObjectPosition(ndc_x, ndc_y, distanceMeters);
-            
-            // Mostrar información de depuración (opcional, en consola)
-            // console.log(`QR | Distancia: ${distanceMeters.toFixed(2)}m | Ancho px: ${avgWidthPx.toFixed(0)}`);
-            
-            // Actualizar texto de estado con distancia
-            qrStatusSpan.innerHTML = `✅ QR SOBRE EL CUADRADO | Dist: ${distanceMeters.toFixed(2)}m`;
+            // Actualizar estado con distancia
+            qrStatusSpan.innerHTML = `✅ QR | Distancia: ${distance.toFixed(2)}m | Ancho: ${Math.round(avgWidthPx)}px`;
         } else {
-            // No se detecta QR
             if (qrDetected) {
                 qrDetected = false;
-                qrStatusSpan.innerHTML = "🔍 ESCANEANDO QR";
-                qrStatusSpan.style.backgroundColor = "#FFD700";
-                showARObject(false);
+                qrStatusSpan.innerHTML = "🔍 QR: NO DETECTADO";
+                qrStatusSpan.style.background = "#f1c40f";
+                arObject.visible = false;
+                objectStatusSpan.innerHTML = "⚫ OBJETO OCULTO";
+                objectStatusSpan.style.background = "#e67e22";
             }
         }
     }
     
-    // --- Bucle principal de detección de QR (cada frame) usando requestAnimationFrame ---
-    let detectionLoopRunning = true;
-    
-    function detectionFrame() {
-        if (videoElem.readyState === videoElem.HAVE_ENOUGH_DATA && videoWidth > 0 && videoHeight > 0) {
-            detectQRFromVideo();
-        }
-        if (detectionLoopRunning) {
-            requestAnimationFrame(detectionFrame);
-        }
-    }
-    
-    // --- Animación de Three.js ---
-    function animateThree() {
-        requestAnimationFrame(animateThree);
-        if (renderer && camera && scene) {
-            // Si el objeto AR está visible, aseguramos que mire siempre a la cámara (billboard actualizado)
-            if (arObject && arObject.visible) {
-                arObject.lookAt(camera.position);
+    // ----- BUCLE DE DETECCIÓN (cada frame) -----
+    let detectionInterval = null;
+    function startDetectionLoop() {
+        if (detectionInterval) clearInterval(detectionInterval);
+        detectionInterval = setInterval(() => {
+            if (cameraActive && video.readyState >= 2 && videoWidth && videoHeight) {
+                detectQRFromVideo();
             }
-            renderer.render(scene, camera);
-        }
+        }, 100); // 10 fps es suficiente, no sobrecarga
     }
     
-    // --- Inicializar cámara del dispositivo y comenzar ---
-    async function initCamera() {
+    // ----- INICIAR CÁMARA (con botón, evita bloqueo autoplay) -----
+    async function startCamera() {
+        if (cameraActive) {
+            // ya activa, no hacer nada
+            return;
+        }
         try {
-            const constraints = {
-                video: {
-                    facingMode: "environment", // Cámara trasera para AR
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            };
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
-            videoElem.srcObject = stream;
-            await videoElem.play();
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+            });
+            video.srcObject = stream;
+            await video.play();
             
-            // Obtener dimensiones reales del stream de video
-            const track = stream.getVideoTracks()[0];
-            const settings = track.getSettings();
-            videoWidth = settings.width || videoElem.videoWidth;
-            videoHeight = settings.height || videoElem.videoHeight;
+            // Esperar dimensiones reales
+            await new Promise((resolve) => {
+                const check = () => {
+                    if (video.videoWidth && video.videoHeight) {
+                        videoWidth = video.videoWidth;
+                        videoHeight = video.videoHeight;
+                        resolve();
+                    } else {
+                        requestAnimationFrame(check);
+                    }
+                };
+                check();
+            });
             
-            // Esperar a que el video tenga dimensiones correctas
-            const checkDimensions = () => {
-                if (videoElem.videoWidth > 0 && videoElem.videoHeight > 0) {
-                    videoWidth = videoElem.videoWidth;
-                    videoHeight = videoElem.videoHeight;
-                    // Actualizar parámetros de cámara para three.js
-                    updateCameraFOV(videoWidth, videoHeight);
-                    // Ajustar tamaño del canvas de renderizado
-                    renderer.setSize(videoWidth, videoHeight);
-                    canvasAR.style.width = `${videoWidth}px`;
-                    canvasAR.style.height = `${videoHeight}px`;
-                    // Ajustar aspect ratio de cámara three
-                    camera.aspect = videoWidth / videoHeight;
-                    camera.updateProjectionMatrix();
-                    console.log(`Video listo: ${videoWidth}x${videoHeight}, focalLen: ${focalLenPx.toFixed(0)}`);
-                } else {
-                    setTimeout(checkDimensions, 100);
-                }
-            };
-            checkDimensions();
+            cameraActive = true;
+            updateCameraProjection(videoWidth, videoHeight);
+            // Ajustar el canvas al tamaño del video (importante para la proyección)
+            renderer.setSize(videoWidth, videoHeight);
+            canvasAR.style.width = `${videoWidth}px`;
+            canvasAR.style.height = `${videoHeight}px`;
             
+            startDetectionLoop();
+            startBtn.innerText = "✅ CÁMARA ACTIVA";
+            startBtn.style.background = "#2ecc71";
+            startBtn.disabled = true;
+            qrStatusSpan.innerText = "🔍 ESCANEANDO QR...";
+            console.log(`Cámara iniciada: ${videoWidth}x${videoHeight}, focalLenPx: ${focalLenPx}`);
         } catch (err) {
-            console.error("Error al acceder a la cámara:", err);
-            qrStatusSpan.innerHTML = "❌ ERROR DE CÁMARA";
-            qrStatusSpan.style.backgroundColor = "#e74c3c";
-            objectStatusSpan.innerHTML = "⚠️ Permisos denegados o sin cámara";
+            console.error("Error cámara:", err);
+            qrStatusSpan.innerText = "❌ ERROR: Permisos o cámara no disponible";
+            qrStatusSpan.style.background = "#e74c3c";
+            alert("No se pudo acceder a la cámara. Verifica permisos y conexión HTTPS (o localhost).");
         }
     }
     
-    // --- Redimensionar cuando cambia tamaño de ventana ---
-    function handleResize() {
+    // ----- REDIMENSIONAR AL CAMBIAR TAMAÑO VENTANA -----
+    function handleWindowResize() {
         if (videoWidth && videoHeight) {
-            // Mantener proporciones del canvas AR igual al video
-            const container = document.querySelector('.container');
-            const containerRect = container.getBoundingClientRect();
-            // El video se escala con object-fit cover, así que no cambiamos las dimensiones internas,
-            // solo ajustamos el renderer al tamaño de la pantalla para que cubra correctamente.
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            camera.aspect = window.innerWidth / window.innerHeight;
+            const aspectCam = videoWidth / videoHeight;
+            camera.aspect = aspectCam;
             camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        } else {
+            renderer.setSize(window.innerWidth, window.innerHeight);
         }
     }
     
-    // --- Inicialización total ---
+    // ----- INICIALIZACIÓN -----
     function init() {
-        // Crear objeto cuadrado amarillo y añadirlo a la escena
-        arObject = createYellowSquare();
-        arObject.visible = false; // Inicialmente oculto hasta detectar QR
-        scene.add(arObject);
-        
-        // Ajustar el renderizador transparente sobre el video
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setClearColor(0x000000, 0); // Transparente
-        canvasAR.style.position = 'absolute';
-        canvasAR.style.top = '0';
-        canvasAR.style.left = '0';
-        canvasAR.style.zIndex = '2';
-        
-        // Iniciar cámara y procesos
-        initCamera().then(() => {
-            // Iniciar loop de detección de QR después de que la cámara esté activa
-            detectionFrame();
-        }).catch(err => {
-            console.warn(err);
-            qrStatusSpan.innerHTML = "⚠️ Inicia cámara manualmente";
-        });
-        
-        // Animación Three.js
-        animateThree();
-        
-        // Eventos de redimensionamiento
-        window.addEventListener('resize', handleResize);
-        
-        // Actualizar periódicamente la proyección de la cámara si cambian dimensiones del video
-        setInterval(() => {
-            if (videoElem.videoWidth && videoElem.videoHeight) {
-                if (videoWidth !== videoElem.videoWidth || videoHeight !== videoElem.videoHeight) {
-                    videoWidth = videoElem.videoWidth;
-                    videoHeight = videoElem.videoHeight;
-                    updateCameraFOV(videoWidth, videoHeight);
-                    renderer.setSize(videoWidth, videoHeight);
-                    camera.aspect = videoWidth / videoHeight;
-                    camera.updateProjectionMatrix();
-                }
-            }
-        }, 1000);
+        initThree();
+        window.addEventListener('resize', handleWindowResize);
+        startBtn.addEventListener('click', startCamera);
+        updateQRSizeUI();
+        // Mostrar mensaje inicial
+        qrStatusSpan.innerText = "📌 Presiona 'Iniciar Cámara'";
+        objectStatusSpan.innerText = "⚪ ESPERANDO";
     }
     
-    // Ejecutar cuando el DOM esté listo
-    window.onload = init;
-    
-    // Instrucciones adicionales en consola
-    console.log("AR Listo: Apunta a un QR impreso de tamaño conocido (default 10cm). El cuadrado amarillo de 30cm aparecerá sobre él.");
+    init();
 </script>
 </body>
 </html>
