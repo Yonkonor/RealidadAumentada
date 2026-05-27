@@ -1,462 +1,467 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>AR: Cuadrado Amarillo 30cm sobre QR</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            user-select: none;
-        }
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-            background: #111;
-        }
-        .container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            background: #000;
-        }
-        #video {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-            z-index: 1;
-        }
-        #canvas-ar {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: block;
-            z-index: 2;
-            background: transparent;
-        }
-        .controls {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(12px);
-            border-radius: 24px;
-            padding: 16px;
-            z-index: 3;
-            color: white;
-            font-size: 14px;
-            font-weight: 500;
-            border: 1px solid rgba(255,215,0,0.4);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-            transition: all 0.2s;
-            pointer-events: auto;
-        }
-        .status-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        .badge {
-            background: #2c3e50;
-            padding: 6px 14px;
-            border-radius: 40px;
-            font-family: monospace;
-            font-weight: bold;
-            font-size: 13px;
-        }
-        .badge.qr {
-            background: #f1c40f;
-            color: #1e1e2a;
-        }
-        .badge.object {
-            background: #e67e22;
-        }
-        .btn-start {
-            background: #2ecc71;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 60px;
-            font-weight: bold;
-            font-size: 16px;
-            color: black;
-            cursor: pointer;
-            transition: 0.2s;
-            width: 100%;
-            margin-top: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-        .btn-start:hover {
-            background: #27ae60;
-            transform: scale(0.98);
-        }
-        .size-control {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: rgba(0,0,0,0.5);
-            padding: 6px 12px;
-            border-radius: 48px;
-            margin-top: 8px;
-            justify-content: space-between;
-        }
-        .size-buttons button {
-            background: #f1c40f;
-            border: none;
-            font-size: 18px;
-            font-weight: bold;
-            width: 34px;
-            border-radius: 30px;
-            cursor: pointer;
-            margin: 0 4px;
-        }
-        .footnote {
-            font-size: 10px;
-            opacity: 0.7;
-            margin-top: 10px;
-            text-align: center;
-        }
-        button {
-            pointer-events: auto;
-        }
-        @media (min-width: 640px) {
-            .controls {
-                left: auto;
-                right: 20px;
-                bottom: 20px;
-                width: 320px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>AR QR Scanner</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;600&display=swap');
+
+    :root {
+      --yellow:  #FFD600;
+      --yellow2: #FFA000;
+      --bg:      #0a0a0f;
+      --text:    #e0e8ff;
+      --dim:     rgba(255,255,255,0.15);
+      --success: #00e5a0;
+      --danger:  #ff4060;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: 'Exo 2', sans-serif;
+      color: var(--text);
+    }
+
+    /* ── Camera ── */
+    #video {
+      position: fixed;
+      inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+
+    /* ── AR canvas ── */
+    #ar-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    /* ── HUD ── */
+    #hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 20px 36px;
+    }
+
+    #top-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,0,0,.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--dim);
+      border-radius: 30px;
+      padding: 8px 18px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      letter-spacing: .08em;
+      color: var(--yellow);
+    }
+    #top-bar .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--yellow);
+      box-shadow: 0 0 8px var(--yellow);
+      animation: blink 1.4s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.3; transform:scale(.6); }
+    }
+
+    /* viewfinder */
+    #finder {
+      position: relative;
+      width: min(220px, 58vw);
+      height: min(220px, 58vw);
+    }
+    #finder::before, #finder::after,
+    .fc::before,    .fc::after {
+      content: '';
+      position: absolute;
+      width: 26px; height: 26px;
+      border-color: var(--yellow);
+      border-style: solid;
+      opacity: .85;
+    }
+    #finder::before { top:0;    left:0;    border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+    #finder::after  { top:0;    right:0;   border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+    .fc::before     { bottom:0; left:0;    border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+    .fc::after      { bottom:0; right:0;   border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+    #scan-line {
+      position: absolute;
+      left: 8%; right: 8%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--yellow), transparent);
+      box-shadow: 0 0 8px var(--yellow);
+      animation: sweep 2s ease-in-out infinite;
+    }
+    @keyframes sweep {
+      0%   { top: 8%;  opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 1; }
+      100% { top: 88%; opacity: 0; }
+    }
+
+    /* status pill */
+    #status-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,0,0,.65);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--dim);
+      border-radius: 40px;
+      padding: 10px 22px;
+      font-size: 13px;
+      max-width: 90vw;
+      transition: border-color .3s, background .3s;
+    }
+    #status-pill.found {
+      border-color: var(--success);
+      background: rgba(0,229,160,.10);
+    }
+    #status-text {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .05em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
+    }
+
+    /* ── Start screen ── */
+    #start-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      z-index: 20;
+      padding: 32px;
+      text-align: center;
+    }
+    #start-screen .logo {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      letter-spacing: .3em;
+      color: var(--yellow);
+      opacity: .7;
+    }
+    #start-screen h1 {
+      font-size: clamp(24px, 6vw, 36px);
+      font-weight: 600;
+      letter-spacing: .05em;
+    }
+    #start-screen p {
+      font-size: 14px;
+      opacity: .5;
+      max-width: 300px;
+      line-height: 1.6;
+    }
+    #btn-start {
+      margin-top: 8px;
+      padding: 16px 40px;
+      background: var(--yellow);
+      color: #000;
+      border: none;
+      border-radius: 50px;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      cursor: pointer;
+      pointer-events: all;
+      box-shadow: 0 0 32px rgba(255,214,0,.35);
+      transition: transform .15s, box-shadow .15s;
+    }
+    #btn-start:hover { transform: scale(1.04); box-shadow: 0 0 48px rgba(255,214,0,.55); }
+    #btn-start:active { transform: scale(.97); }
+
+    /* ── Error screen ── */
+    #error-screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 32px;
+      z-index: 20;
+      text-align: center;
+    }
+    #error-screen .icon { font-size: 52px; }
+    #error-screen h2    { color: var(--danger); font-size: 18px; }
+    #error-screen p     { opacity: .55; font-size: 13px; line-height: 1.7; max-width: 320px; }
+    #btn-retry {
+      margin-top: 8px;
+      padding: 12px 32px;
+      background: transparent;
+      color: var(--yellow);
+      border: 1.5px solid var(--yellow);
+      border-radius: 50px;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      pointer-events: all;
+      transition: background .2s;
+    }
+    #btn-retry:hover { background: rgba(255,214,0,.1); }
+  </style>
 </head>
 <body>
-<div class="container">
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="canvas-ar"></canvas>
-    <div class="controls">
-        <div class="status-row">
-            <span class="badge qr" id="qr-status">🔍 QR: NO DETECTADO</span>
-            <span class="badge object" id="object-status">⚫ OBJETO: OCULTO</span>
-        </div>
-        <button id="start-camera-btn" class="btn-start">📷 INICIAR CÁMARA Y AR</button>
-        <div class="size-control">
-            <span>📏 Tamaño real del QR:</span>
-            <div class="size-buttons">
-                <button id="dec-size">−</button>
-                <strong id="qr-real-size-display">10 cm</strong>
-                <button id="inc-size">+</button>
-            </div>
-        </div>
-        <div class="footnote">
-            ✅ Apunta a un QR impreso (tamaño físico: <span id="size-note">10</span> cm de lado).<br>
-            🟨 Al detectarlo, aparecerá un cuadrado AMARILLO de <strong>30x30 cm</strong> flotando sobre él.
-        </div>
-    </div>
+
+<!-- Start screen -->
+<div id="start-screen">
+  <div class="logo">REALIDAD AUMENTADA</div>
+  <h1>AR · QR Scanner</h1>
+  <p>Apuntá la cámara a cualquier código QR y aparecerá un objeto AR encima.</p>
+  <button id="btn-start">INICIAR CÁMARA</button>
 </div>
 
-<script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
-            "jsqr": "https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"
-        }
-    }
-</script>
+<!-- Error screen -->
+<div id="error-screen">
+  <div class="icon">📷</div>
+  <h2>Sin acceso a cámara</h2>
+  <p id="error-msg">Permitir el acceso a la cámara en el navegador para usar la realidad aumentada.</p>
+  <button id="btn-retry">REINTENTAR</button>
+</div>
 
-<script type="module">
-    import * as THREE from 'three';
-    import jsQR from 'jsqr';
-    
-    // ----- ELEMENTOS DOM -----
-    const video = document.getElementById('video');
-    const canvasAR = document.getElementById('canvas-ar');
-    const startBtn = document.getElementById('start-camera-btn');
-    const qrStatusSpan = document.getElementById('qr-status');
-    const objectStatusSpan = document.getElementById('object-status');
-    const qrSizeDisplay = document.getElementById('qr-real-size-display');
-    const sizeNoteSpan = document.getElementById('size-note');
-    const incBtn = document.getElementById('inc-size');
-    const decBtn = document.getElementById('dec-size');
-    
-    // ----- PARÁMETROS FÍSICOS -----
-    let realQRSizeMeters = 0.10;       // 10 cm por defecto
-    const OBJECT_SIZE_METERS = 0.30;   // 30 cm amarillo
-    const DEFAULT_VFOV_DEG = 65;       // campo visual vertical estimado
-    
-    // ----- ESTADO -----
-    let cameraActive = false;
-    let qrDetected = false;
-    let arObject = null;           // malla Three.js
-    let scene, camera, renderer;
-    let videoWidth = 0, videoHeight = 0;
-    let focalLenPx = 800;          // se recalcula con el tamaño del video
-    
-    // ----- FUNCIONES UI -----
-    function updateQRSizeUI() {
-        const cm = (realQRSizeMeters * 100).toFixed(0);
-        qrSizeDisplay.innerText = `${cm} cm`;
-        sizeNoteSpan.innerText = cm;
-    }
-    
-    incBtn.addEventListener('click', () => {
-        realQRSizeMeters = Math.min(0.30, realQRSizeMeters + 0.01);
-        updateQRSizeUI();
-    });
-    decBtn.addEventListener('click', () => {
-        realQRSizeMeters = Math.max(0.05, realQRSizeMeters - 0.01);
-        updateQRSizeUI();
-    });
-    
-    // ----- INICIALIZAR THREE.JS (escena transparente) -----
-    function initThree() {
-        renderer = new THREE.WebGLRenderer({ canvas: canvasAR, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setClearColor(0x000000, 0);
-        
-        scene = new THREE.Scene();
-        scene.background = null;
-        
-        // Cámara Three.js (se sincronizará con el video)
-        camera = new THREE.PerspectiveCamera(DEFAULT_VFOV_DEG, window.innerWidth / window.innerHeight, 0.01, 5);
-        camera.position.set(0, 0, 0);
-        
-        // Luces
-        const ambient = new THREE.AmbientLight(0x404060);
-        scene.add(ambient);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-        dirLight.position.set(1, 2, 1);
-        scene.add(dirLight);
-        const fillLight = new THREE.PointLight(0xffaa66, 0.4);
-        fillLight.position.set(0.5, 1, 0.8);
-        scene.add(fillLight);
-        
-        // Cuadrado amarillo plano (30cm x 30cm)
-        const geometry = new THREE.PlaneGeometry(OBJECT_SIZE_METERS, OBJECT_SIZE_METERS);
-        const material = new THREE.MeshStandardMaterial({
-            color: 0xFFD700,
-            emissive: 0x442200,
-            emissiveIntensity: 0.2,
-            metalness: 0.1,
-            roughness: 0.3,
-            side: THREE.DoubleSide
+<!-- Camera feed -->
+<video id="video" autoplay playsinline muted></video>
+
+<!-- AR canvas -->
+<canvas id="ar-canvas"></canvas>
+
+<!-- HUD (only visible after camera starts) -->
+<div id="hud" style="display:none;">
+  <div id="top-bar">
+    <div class="dot"></div>
+    AR · QR TRACKER
+  </div>
+  <div id="finder">
+    <div class="fc"></div>
+    <div id="scan-line"></div>
+  </div>
+  <div id="status-pill">
+    <span id="status-icon">🔍</span>
+    <span id="status-text">BUSCANDO CÓDIGO QR…</span>
+  </div>
+</div>
+
+<!-- jsQR from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+<script>
+  /* ──────────────────────────────────────────────────────────
+     Elements
+  ────────────────────────────────────────────────────────── */
+  const startScreen = document.getElementById('start-screen');
+  const errorScreen = document.getElementById('error-screen');
+  const errorMsg    = document.getElementById('error-msg');
+  const btnStart    = document.getElementById('btn-start');
+  const btnRetry    = document.getElementById('btn-retry');
+  const video       = document.getElementById('video');
+  const arCanvas    = document.getElementById('ar-canvas');
+  const hud         = document.getElementById('hud');
+  const statusPill  = document.getElementById('status-pill');
+  const statusIcon  = document.getElementById('status-icon');
+  const statusText  = document.getElementById('status-text');
+  const ctx         = arCanvas.getContext('2d');
+
+  // Off-screen canvas for jsQR
+  const proc    = document.createElement('canvas');
+  const procCtx = proc.getContext('2d', { willReadFrequently: true });
+
+  let lastFound = false;
+
+  /* ──────────────────────────────────────────────────────────
+     Resize
+  ────────────────────────────────────────────────────────── */
+  function resize() {
+    arCanvas.width  = window.innerWidth;
+    arCanvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  /* ──────────────────────────────────────────────────────────
+     Camera
+  ────────────────────────────────────────────────────────── */
+  async function startCamera() {
+    try {
+      // Try back camera first, fall back to any camera
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
         });
-        arObject = new THREE.Mesh(geometry, material);
-        // Borde decorativo
-        const edges = new THREE.EdgesGeometry(geometry);
-        const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xFFAA33 }));
-        arObject.add(wire);
-        arObject.visible = false;
-        scene.add(arObject);
-        
-        animate();
+      } catch (e) {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+
+      video.srcObject = stream;
+      await video.play();
+
+      startScreen.style.display = 'none';
+      errorScreen.style.display = 'none';
+      hud.style.display         = 'flex';
+
+      loop();
+    } catch (err) {
+      startScreen.style.display = 'none';
+      errorScreen.style.display = 'flex';
+      let msg = 'No se pudo acceder a la cámara.';
+      if (err.name === 'NotAllowedError')   msg = 'Permiso denegado. Habilitá la cámara en la configuración del navegador y recargá la página.';
+      if (err.name === 'NotFoundError')     msg = 'No se encontró ninguna cámara en este dispositivo.';
+      if (err.name === 'NotSupportedError') msg = 'Este navegador no soporta acceso a la cámara. Probá con Chrome o Safari sobre HTTPS.';
+      if (err.name === 'NotReadableError')  msg = 'La cámara está siendo usada por otra aplicación.';
+      errorMsg.textContent = msg + ' (' + err.name + ')';
     }
-    
-    function animate() {
-        requestAnimationFrame(animate);
-        if (renderer && camera && scene) {
-            if (arObject && arObject.visible) {
-                // Billboard: siempre mirando a la cámara
-                arObject.lookAt(camera.position);
-            }
-            renderer.render(scene, camera);
-        }
+  }
+
+  btnStart.addEventListener('click', startCamera);
+  btnRetry.addEventListener('click', () => {
+    errorScreen.style.display = 'none';
+    startScreen.style.display = 'flex';
+  });
+
+  /* ──────────────────────────────────────────────────────────
+     Map video coords → canvas coords  (object-fit: cover)
+  ────────────────────────────────────────────────────────── */
+  function mapPt(px, py, vw, vh, cw, ch) {
+    const vA = vw / vh, cA = cw / ch;
+    let sc, ox, oy;
+    if (vA > cA) { sc = ch / vh; ox = (cw - vw * sc) / 2; oy = 0; }
+    else         { sc = cw / vw; ox = 0; oy = (ch - vh * sc) / 2; }
+    return { x: px * sc + ox, y: py * sc + oy };
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     Draw AR square
+  ────────────────────────────────────────────────────────── */
+  function drawARSquare(tl, tr, br, bl) {
+    // Glow fill
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,214,0,0.55)';
+    ctx.shadowBlur  = 30;
+    ctx.beginPath();
+    ctx.moveTo(tl.x, tl.y);
+    ctx.lineTo(tr.x, tr.y);
+    ctx.lineTo(br.x, br.y);
+    ctx.lineTo(bl.x, bl.y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,214,0,0.70)';
+    ctx.fill();
+    ctx.restore();
+
+    // Border
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(tl.x, tl.y);
+    ctx.lineTo(tr.x, tr.y);
+    ctx.lineTo(br.x, br.y);
+    ctx.lineTo(bl.x, bl.y);
+    ctx.closePath();
+    ctx.strokeStyle = '#FFD600';
+    ctx.lineWidth   = 3;
+    ctx.stroke();
+    ctx.restore();
+
+    // Corner dots
+    [tl, tr, br, bl].forEach(pt => {
+      ctx.save();
+      ctx.fillStyle   = '#FFA000';
+      ctx.shadowColor = 'rgba(255,160,0,0.9)';
+      ctx.shadowBlur  = 14;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Diagonal lines
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,214,0,0.20)';
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(tl.x, tl.y); ctx.lineTo(br.x, br.y);
+    ctx.moveTo(tr.x, tr.y); ctx.lineTo(bl.x, bl.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     Scan loop
+  ────────────────────────────────────────────────────────── */
+  function loop() {
+    requestAnimationFrame(loop);
+
+    if (video.readyState < video.HAVE_ENOUGH_DATA) return;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (vw === 0 || vh === 0) return;
+
+    const cw = arCanvas.width;
+    const ch = arCanvas.height;
+
+    proc.width  = vw;
+    proc.height = vh;
+    procCtx.drawImage(video, 0, 0, vw, vh);
+
+    const imgData = procCtx.getImageData(0, 0, vw, vh);
+    const code    = jsQR(imgData.data, vw, vh, { inversionAttempts: 'dontInvert' });
+
+    ctx.clearRect(0, 0, cw, ch);
+
+    if (code) {
+      const loc = code.location;
+      const tl  = mapPt(loc.topLeftCorner.x,     loc.topLeftCorner.y,     vw, vh, cw, ch);
+      const tr  = mapPt(loc.topRightCorner.x,    loc.topRightCorner.y,    vw, vh, cw, ch);
+      const br  = mapPt(loc.bottomRightCorner.x, loc.bottomRightCorner.y, vw, vh, cw, ch);
+      const bl  = mapPt(loc.bottomLeftCorner.x,  loc.bottomLeftCorner.y,  vw, vh, cw, ch);
+
+      drawARSquare(tl, tr, br, bl);
+
+      if (!lastFound) {
+        statusPill.classList.add('found');
+        statusIcon.textContent = '✓';
+      }
+      lastFound = true;
+      const label = code.data.length > 36 ? code.data.slice(0, 33) + '…' : code.data;
+      statusText.textContent = label;
+    } else {
+      if (lastFound) {
+        statusPill.classList.remove('found');
+        statusIcon.textContent = '🔍';
+        statusText.textContent = 'BUSCANDO CÓDIGO QR…';
+      }
+      lastFound = false;
     }
-    
-    // ----- ACTUALIZAR PROYECCIÓN DE CÁMARA SEGÚN VIDEO -----
-    function updateCameraProjection(videoW, videoH) {
-        if (videoW === 0 || videoH === 0) return;
-        const aspect = videoW / videoH;
-        camera.aspect = aspect;
-        camera.fov = DEFAULT_VFOV_DEG;
-        camera.updateProjectionMatrix();
-        // Calcular focal length en píxeles (para fórmula distancia)
-        const vFOVrad = DEFAULT_VFOV_DEG * Math.PI / 180;
-        focalLenPx = (videoH / 2) / Math.tan(vFOVrad / 2);
-        // Ajustar tamaño del renderer al contenedor
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-    
-    // ----- ESTIMAR DISTANCIA (metros) según tamaño en píxeles del QR -----
-    function estimateDistance(qrWidthPx) {
-        if (qrWidthPx <= 0 || focalLenPx <= 0) return 0.5;
-        let dist = (realQRSizeMeters * focalLenPx) / qrWidthPx;
-        return Math.min(2.0, Math.max(0.12, dist));
-    }
-    
-    // ----- CONVERTIR coordenadas píxel a NDC (rango -1..1) -----
-    function pixelToNDC(px, py, w, h) {
-        const ndcX = (px / w) * 2 - 1;
-        const ndcY = -(py / h) * 2 + 1;
-        return { x: ndcX, y: ndcY };
-    }
-    
-    // ----- Obtener dirección 3D desde cámara hacia NDC -----
-    function getRayDirection(ndcX, ndcY, cam) {
-        const vec = new THREE.Vector3(ndcX, ndcY, 0.5);
-        vec.unproject(cam);
-        return vec.sub(cam.position).normalize();
-    }
-    
-    // ----- POSICIONAR el cuadrado en el mundo 3D (sobre el QR) -----
-    function positionARObject(centerNDC, distanceMeters) {
-        if (!arObject) return;
-        const direction = getRayDirection(centerNDC.x, centerNDC.y, camera);
-        const newPos = camera.position.clone().add(direction.multiplyScalar(distanceMeters));
-        arObject.position.copy(newPos);
-        // Orientación: siempre hacia la cámara, pero el plano mira hacia +Z por defecto
-        arObject.lookAt(camera.position);
-    }
-    
-    // ----- DETECTAR QR EN UN FRAME (video) -----
-    async function detectQRFromVideo() {
-        if (!cameraActive || videoWidth === 0 || videoHeight === 0) return;
-        
-        // Capturar frame actual
-        const canvas = document.createElement('canvas');
-        canvas.width = videoWidth;
-        canvas.height = videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
-        const imageData = ctx.getImageData(0, 0, videoWidth, videoHeight);
-        
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "dontInvert",
-        });
-        
-        if (code) {
-            // QR detectado
-            if (!qrDetected) {
-                qrDetected = true;
-                qrStatusSpan.innerHTML = "✅ QR DETECTADO - Posicionando objeto";
-                qrStatusSpan.style.background = "#2ecc71";
-                arObject.visible = true;
-                objectStatusSpan.innerHTML = "🟨 OBJETO VISIBLE (30cm)";
-                objectStatusSpan.style.background = "#f39c12";
-            }
-            
-            // Calcular ancho promedio del QR en píxeles
-            const { location } = code;
-            const topW = Math.hypot(location.topRightCorner.x - location.topLeftCorner.x, location.topRightCorner.y - location.topLeftCorner.y);
-            const bottomW = Math.hypot(location.bottomRightCorner.x - location.bottomLeftCorner.x, location.bottomRightCorner.y - location.bottomLeftCorner.y);
-            const avgWidthPx = (topW + bottomW) / 2;
-            
-            // Centro del QR (píxeles)
-            const cx = (location.topLeftCorner.x + location.topRightCorner.x + location.bottomRightCorner.x + location.bottomLeftCorner.x) / 4;
-            const cy = (location.topLeftCorner.y + location.topRightCorner.y + location.bottomLeftCorner.y + location.bottomRightCorner.y) / 4;
-            
-            const ndc = pixelToNDC(cx, cy, videoWidth, videoHeight);
-            const distance = estimateDistance(avgWidthPx);
-            
-            positionARObject(ndc, distance);
-            
-            // Actualizar estado con distancia
-            qrStatusSpan.innerHTML = `✅ QR | Distancia: ${distance.toFixed(2)}m | Ancho: ${Math.round(avgWidthPx)}px`;
-        } else {
-            if (qrDetected) {
-                qrDetected = false;
-                qrStatusSpan.innerHTML = "🔍 QR: NO DETECTADO";
-                qrStatusSpan.style.background = "#f1c40f";
-                arObject.visible = false;
-                objectStatusSpan.innerHTML = "⚫ OBJETO OCULTO";
-                objectStatusSpan.style.background = "#e67e22";
-            }
-        }
-    }
-    
-    // ----- BUCLE DE DETECCIÓN (cada frame) -----
-    let detectionInterval = null;
-    function startDetectionLoop() {
-        if (detectionInterval) clearInterval(detectionInterval);
-        detectionInterval = setInterval(() => {
-            if (cameraActive && video.readyState >= 2 && videoWidth && videoHeight) {
-                detectQRFromVideo();
-            }
-        }, 100); // 10 fps es suficiente, no sobrecarga
-    }
-    
-    // ----- INICIAR CÁMARA (con botón, evita bloqueo autoplay) -----
-    async function startCamera() {
-        if (cameraActive) {
-            // ya activa, no hacer nada
-            return;
-        }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
-            });
-            video.srcObject = stream;
-            await video.play();
-            
-            // Esperar dimensiones reales
-            await new Promise((resolve) => {
-                const check = () => {
-                    if (video.videoWidth && video.videoHeight) {
-                        videoWidth = video.videoWidth;
-                        videoHeight = video.videoHeight;
-                        resolve();
-                    } else {
-                        requestAnimationFrame(check);
-                    }
-                };
-                check();
-            });
-            
-            cameraActive = true;
-            updateCameraProjection(videoWidth, videoHeight);
-            // Ajustar el canvas al tamaño del video (importante para la proyección)
-            renderer.setSize(videoWidth, videoHeight);
-            canvasAR.style.width = `${videoWidth}px`;
-            canvasAR.style.height = `${videoHeight}px`;
-            
-            startDetectionLoop();
-            startBtn.innerText = "✅ CÁMARA ACTIVA";
-            startBtn.style.background = "#2ecc71";
-            startBtn.disabled = true;
-            qrStatusSpan.innerText = "🔍 ESCANEANDO QR...";
-            console.log(`Cámara iniciada: ${videoWidth}x${videoHeight}, focalLenPx: ${focalLenPx}`);
-        } catch (err) {
-            console.error("Error cámara:", err);
-            qrStatusSpan.innerText = "❌ ERROR: Permisos o cámara no disponible";
-            qrStatusSpan.style.background = "#e74c3c";
-            alert("No se pudo acceder a la cámara. Verifica permisos y conexión HTTPS (o localhost).");
-        }
-    }
-    
-    // ----- REDIMENSIONAR AL CAMBIAR TAMAÑO VENTANA -----
-    function handleWindowResize() {
-        if (videoWidth && videoHeight) {
-            const aspectCam = videoWidth / videoHeight;
-            camera.aspect = aspectCam;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        } else {
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-    }
-    
-    // ----- INICIALIZACIÓN -----
-    function init() {
-        initThree();
-        window.addEventListener('resize', handleWindowResize);
-        startBtn.addEventListener('click', startCamera);
-        updateQRSizeUI();
-        // Mostrar mensaje inicial
-        qrStatusSpan.innerText = "📌 Presiona 'Iniciar Cámara'";
-        objectStatusSpan.innerText = "⚪ ESPERANDO";
-    }
-    
-    init();
+  }
 </script>
 </body>
 </html>
