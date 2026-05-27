@@ -3,26 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>AR Vision - Video por QR</title>
-  <!-- Libreria jsQR para decodificar códigos QR -->
+  <title>AR Screen - Video Flotante</title>
+  <!-- jsQR para decodificar QR -->
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      user-select: none; /* Evita selección molesta en móvil */
     }
 
     body {
       overflow: hidden;
-      font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, 'Inter', sans-serif;
+      font-family: 'Segoe UI', system-ui, sans-serif;
       background: #000;
-      color: white;
-      touch-action: pan-x pan-y; /* permite scroll pero no zoom excesivo */
+      touch-action: none;
     }
 
-    /* Contenedor de la cámara en vivo (fondo de realidad aumentada) */
+    /* Cámara de fondo (realidad aumentada) */
     .camera-container {
       position: fixed;
       top: 0;
@@ -30,8 +28,7 @@
       width: 100%;
       height: 100%;
       z-index: 1;
-      overflow: hidden;
-      background: #0a0f1e;
+      background: #000;
     }
 
     #cameraView {
@@ -44,80 +41,74 @@
       width: auto;
       height: auto;
       object-fit: cover;
-      filter: brightness(1.02) contrast(1.05);
     }
 
-    /* Overlay de interfaz y escaneo */
+    /* Interfaz superior */
     .ui-overlay {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
-      height: 100%;
       z-index: 2;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
       align-items: center;
-      pointer-events: none; /* para que los botones tengan pointer events auto */
+      pointer-events: none;
+      padding-top: 20px;
     }
 
-    .header-status {
-      background: rgba(0, 0, 0, 0.65);
+    .status-card {
+      background: rgba(0, 0, 0, 0.7);
       backdrop-filter: blur(12px);
-      border-radius: 60px;
-      padding: 12px 24px;
-      margin-top: 24px;
+      border-radius: 50px;
+      padding: 10px 20px;
+      font-size: 0.9rem;
+      color: #0ff;
       font-weight: 500;
-      font-size: 1rem;
-      letter-spacing: 0.5px;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      pointer-events: auto;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      border: 1px solid rgba(0, 255, 255, 0.4);
+      box-shadow: 0 0 12px rgba(0, 255, 255, 0.2);
+      pointer-events: none;
+      text-align: center;
     }
 
-    .status-text {
-      color: #e0e0ff;
-      text-shadow: 0 0 5px rgba(0,200,255,0.5);
-    }
-
-    .qr-hint {
-      background: rgba(0, 0, 0, 0.6);
+    .hint {
+      background: rgba(0,0,0,0.6);
       backdrop-filter: blur(8px);
       border-radius: 28px;
-      padding: 10px 20px;
-      margin-bottom: 24px;
-      font-size: 0.85rem;
-      text-align: center;
-      border-left: 3px solid #00e0ff;
-      pointer-events: auto;
-      max-width: 85%;
+      padding: 8px 18px;
+      margin-top: 12px;
+      font-size: 0.75rem;
+      color: #ccc;
+      border-left: 3px solid cyan;
     }
 
     .reset-btn {
-      background: rgba(20, 20, 40, 0.8);
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
       backdrop-filter: blur(12px);
-      border: 1px solid rgba(0, 255, 255, 0.5);
+      border: 1px solid cyan;
       color: cyan;
       padding: 12px 28px;
       border-radius: 60px;
-      font-weight: 600;
+      font-weight: bold;
       font-size: 1rem;
       cursor: pointer;
-      transition: all 0.2s ease;
-      margin-bottom: 32px;
+      z-index: 20;
+      transition: 0.2s;
       pointer-events: auto;
-      font-family: inherit;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      font-family: monospace;
     }
 
     .reset-btn:active {
-      transform: scale(0.96);
-      background: rgba(0, 160, 200, 0.8);
-      color: white;
+      transform: translateX(-50%) scale(0.96);
+      background: cyan;
+      color: black;
     }
 
-    /* PANTALLA DE REALIDAD AUMENTADA (video flotante con estilo futurista) */
+    /* PANTALLA AR: video flotante estilo holograma */
     .ar-screen {
       position: fixed;
       top: 0;
@@ -128,11 +119,11 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      pointer-events: none;
       visibility: hidden;
       opacity: 0;
-      transition: visibility 0.2s, opacity 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+      transition: visibility 0.2s, opacity 0.4s ease;
       backdrop-filter: blur(2px);
+      pointer-events: none;
     }
 
     .ar-screen.active {
@@ -141,507 +132,267 @@
       pointer-events: auto;
     }
 
-    /* Marco de realidad aumentada (efecto holográfico) */
-    .ar-video-frame {
+    /* Marco holográfico (sin controles de video visibles) */
+    .hologram {
       position: relative;
       width: 85%;
-      max-width: 800px;
+      max-width: 750px;
       aspect-ratio: 16 / 9;
-      background: rgba(0, 0, 0, 0.25);
-      border-radius: 32px;
-      padding: 12px;
-      backdrop-filter: blur(2px);
-      box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(0, 255, 255, 0.3), 0 0 0 6px rgba(0, 0, 0, 0.2);
-      transform: perspective(1200px) rotateX(3deg) rotateY(0deg) translateZ(10px);
-      transition: transform 0.3s ease;
-      animation: floatGlow 2s infinite alternate;
+      background: rgba(0, 20, 30, 0.3);
+      border-radius: 28px;
+      padding: 8px;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 0 2px rgba(0, 255, 255, 0.6), 0 0 0 6px rgba(0,0,0,0.3);
+      transform: perspective(1000px) rotateX(4deg) translateY(0px);
+      animation: floatGlow 3s infinite alternate;
     }
 
     @keyframes floatGlow {
       0% {
-        box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(0, 255, 255, 0.3), 0 0 0 6px rgba(0, 0, 0, 0.2);
-        transform: perspective(1200px) rotateX(2deg) translateY(0px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 0 2px rgba(0, 255, 255, 0.4), 0 0 0 6px rgba(0,0,0,0.3);
+        transform: perspective(1000px) rotateX(3deg) translateY(0px);
       }
       100% {
-        box-shadow: 0 30px 55px rgba(0, 0, 0, 0.6), 0 0 0 3px rgba(0, 230, 250, 0.6), 0 0 0 8px rgba(0, 0, 0, 0.3);
-        transform: perspective(1200px) rotateX(4deg) translateY(-4px);
+        box-shadow: 0 30px 50px rgba(0,0,0,0.6), 0 0 0 3px rgba(0, 230, 250, 0.9), 0 0 0 10px rgba(0,0,0,0.2);
+        transform: perspective(1000px) rotateX(5deg) translateY(-6px);
       }
     }
 
-    .ar-video-frame video {
+    /* Video AR: sin controles, se reproduce automáticamente en bucle */
+    .ar-video {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      border-radius: 24px;
+      border-radius: 22px;
       display: block;
       background: #000;
-      box-shadow: inset 0 0 20px rgba(0,255,255,0.2);
       cursor: pointer;
+      /* Sin controles nativos, solo el contenido */
     }
 
-    /* elementos decorativos AR */
+    /* Esquinas decorativas AR */
     .ar-corner {
       position: absolute;
-      width: 30px;
-      height: 30px;
+      width: 28px;
+      height: 28px;
       border: 2px solid cyan;
-      filter: drop-shadow(0 0 4px cyan);
+      filter: drop-shadow(0 0 5px cyan);
     }
-
-    .ar-corner-tl {
-      top: 0;
-      left: 0;
-      border-right: none;
-      border-bottom: none;
-    }
-    .ar-corner-tr {
-      top: 0;
-      right: 0;
-      border-left: none;
-      border-bottom: none;
-    }
-    .ar-corner-bl {
-      bottom: 0;
-      left: 0;
-      border-right: none;
-      border-top: none;
-    }
-    .ar-corner-br {
-      bottom: 0;
-      right: 0;
-      border-left: none;
-      border-top: none;
-    }
+    .corner-tl { top: 0; left: 0; border-right: none; border-bottom: none; border-radius: 8px 0 0 0; }
+    .corner-tr { top: 0; right: 0; border-left: none; border-bottom: none; border-radius: 0 8px 0 0; }
+    .corner-bl { bottom: 0; left: 0; border-right: none; border-top: none; border-radius: 0 0 0 8px; }
+    .corner-br { bottom: 0; right: 0; border-left: none; border-top: none; border-radius: 0 0 8px 0; }
 
     .ar-label {
       position: absolute;
-      bottom: -35px;
+      bottom: -30px;
       left: 20px;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0,0,0,0.6);
       backdrop-filter: blur(8px);
-      padding: 6px 16px;
-      border-radius: 40px;
-      font-size: 0.75rem;
-      letter-spacing: 1px;
-      font-weight: 500;
+      padding: 4px 14px;
+      border-radius: 30px;
+      font-size: 0.7rem;
       color: cyan;
-      border: 1px solid rgba(0,255,255,0.4);
       font-family: monospace;
+      letter-spacing: 1px;
     }
 
-    /* zona de demo QR (para testeo rápido) */
-    .demo-qr-container {
+    /* Widget QR de demo (solo ayuda) */
+    .demo-qr {
       position: fixed;
       bottom: 20px;
       right: 20px;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(16px);
-      border-radius: 20px;
-      padding: 10px 12px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(12px);
+      border-radius: 18px;
+      padding: 8px;
       z-index: 20;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid rgba(255,255,255,0.2);
-      pointer-events: auto;
-      transition: 0.2s;
-    }
-
-    .demo-qr-container span {
-      font-size: 10px;
-      color: #ccc;
-      font-weight: 400;
-    }
-
-    .demo-qr-img {
-      width: 70px;
-      height: 70px;
-      background: white;
-      border-radius: 12px;
-      padding: 4px;
-    }
-
-    /* mensaje de error o permiso */
-    .perm-message {
-      background: rgba(220, 50, 50, 0.9);
-      border-radius: 40px;
-      padding: 10px 20px;
-      font-size: 0.8rem;
-      margin-top: 20px;
       text-align: center;
+      pointer-events: auto;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .demo-qr span {
+      font-size: 9px;
+      color: #aaa;
+    }
+    .demo-qr img {
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      background: white;
     }
 
-    /* Responsive */
     @media (max-width: 600px) {
-      .ar-video-frame {
-        width: 90%;
-      }
-      .reset-btn {
-        padding: 10px 20px;
-        font-size: 0.9rem;
-      }
-      .header-status {
-        font-size: 0.8rem;
-        padding: 8px 16px;
-      }
-      .demo-qr-container {
-        bottom: 12px;
-        right: 12px;
-        transform: scale(0.85);
-      }
+      .hologram { width: 90%; }
+      .reset-btn { padding: 10px 20px; font-size: 0.8rem; bottom: 20px; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Contenedor de cámara (fondo AR en vivo) -->
   <div class="camera-container">
     <video id="cameraView" autoplay playsinline muted></video>
   </div>
-
-  <!-- Canvas oculto para procesar frames y decodificar QR -->
   <canvas id="qrCanvas" style="display: none;"></canvas>
 
-  <!-- Interfaz principal y controles -->
   <div class="ui-overlay">
-    <div class="header-status">
-      <span class="status-text" id="statusMessage">🔍 Escaneando QR... (busca: AR_VIDEO_TRIGGER)</span>
-    </div>
-    <div class="qr-hint">
-      📸 Apunta la cámara a un código QR con el texto: <strong style="color: #0ff;">"AR_VIDEO_TRIGGER"</strong><br>
-      <span style="font-size: 0.7rem;">✨ Al detectarlo se abrirá el video en Realidad Aumentada</span>
-    </div>
-    <button class="reset-btn" id="resetButton">🔄 REINICIAR / NUEVO ESCANEO</button>
+    <div class="status-card" id="statusMsg">🔍 Escaneando QR: AR_VIDEO_TRIGGER</div>
+    <div class="hint">📲 Apunta a un QR con el texto <strong style="color:#0ff;">"AR_VIDEO_TRIGGER"</strong></div>
   </div>
+  <button class="reset-btn" id="resetBtn">⟳ REINICIAR AR</button>
 
-  <!-- PANTALLA DE REALIDAD AUMENTADA (contenedor del video flotante) -->
+  <!-- Pantalla de Realidad Aumentada (video flotante sin controles) -->
   <div id="arScreen" class="ar-screen">
-    <div class="ar-video-frame">
-      <!-- esquinas decorativas AR -->
-      <div class="ar-corner ar-corner-tl"></div>
-      <div class="ar-corner ar-corner-tr"></div>
-      <div class="ar-corner ar-corner-bl"></div>
-      <div class="ar-corner ar-corner-br"></div>
-      <div class="ar-label">✦ REALIDAD AUMENTADA ✦</div>
-      <video id="arVideo" controls playsinline muted autoplay></video>
+    <div class="hologram">
+      <div class="ar-corner corner-tl"></div>
+      <div class="ar-corner corner-tr"></div>
+      <div class="ar-corner corner-bl"></div>
+      <div class="ar-corner corner-br"></div>
+      <div class="ar-label">⚡ HOLOGRAM SCREEN ⚡</div>
+      <video id="arVideo" class="ar-video" autoplay muted loop playsinline></video>
     </div>
   </div>
 
-  <!-- pequeño widget QR de demo (para testear con otro dispositivo o segunda pantalla) -->
-  <div class="demo-qr-container" id="demoQrWidget">
-    <span>🔹 QR demo (texto: AR_VIDEO_TRIGGER)</span>
-    <img id="demoQrImg" class="demo-qr-img" alt="QR demo" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=AR_VIDEO_TRIGGER">
-    <span style="font-size:8px;">usa otra cámara o segundo móvil</span>
+  <div class="demo-qr">
+    <span>🔹 QR de prueba</span>
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=AR_VIDEO_TRIGGER" alt="demo qr">
   </div>
 
   <script>
     (function() {
-      // ---- Elementos DOM ----
-      const videoElement = document.getElementById('cameraView');
-      const canvas = document.getElementById('qrCanvas');
-      const ctx = canvas.getContext('2d');
-      const statusDiv = document.getElementById('statusMessage');
-      const resetBtn = document.getElementById('resetButton');
-      const arScreenDiv = document.getElementById('arScreen');
+      // Elementos
+      const cameraVideo = document.getElementById('cameraView');
+      const qrCanvas = document.getElementById('qrCanvas');
+      const ctx = qrCanvas.getContext('2d');
+      const statusEl = document.getElementById('statusMsg');
+      const resetBtn = document.getElementById('resetBtn');
+      const arScreen = document.getElementById('arScreen');
       const arVideo = document.getElementById('arVideo');
       
-      // ---- Variables de estado ----
-      let scanningActive = true;          // si estamos en modo escaneo
-      let videoShown = false;             // si el video AR ya está activo
-      let animationFrameId = null;        // requestAnimationFrame id
-      let stream = null;                  // stream de cámara
+      // Configuración
+      const EXPECTED_QR = "AR_VIDEO_TRIGGER";
+      const VIDEO_URL = "https://www.youtube.com/watch?v=I9rWj2blNKk"; // video demo
       
-      // Configuración del QR esperado
-      const EXPECTED_QR_TEXT = "AR_VIDEO_TRIGGER";
+      let scanning = true;
+      let videoActive = false;
+      let animFrame = null;
+      let mediaStream = null;
       
-      // URL de video (contenido interesante para AR - video demostrativo)
-      const AR_VIDEO_URL = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
-      // Video alternativo seguro y moderno (también funciona offline friendly)
-      
-      // ---- Funciones auxiliares ----
       function updateStatus(msg, isError = false) {
-        if (statusDiv) {
-          statusDiv.innerHTML = msg;
-          if (isError) {
-            statusDiv.style.color = "#ffaa88";
-          } else {
-            statusDiv.style.color = "#e0e0ff";
-          }
-        }
+        statusEl.innerHTML = msg;
+        statusEl.style.color = isError ? "#ffaa88" : "#0ff";
       }
       
-      // Detener scanner y mostrar pantalla AR con video
-      function showARVideo() {
-        if (videoShown) return; // ya activado
-        videoShown = true;
-        scanningActive = false;
+      // Mostrar pantalla AR con video flotante
+      function showARScreen() {
+        if (videoActive) return;
+        videoActive = true;
+        scanning = false;
         
-        // Cancelar el loop de escaneo
-        if (animationFrameId) {
-          cancelAnimationFrame(animationFrameId);
-          animationFrameId = null;
-        }
+        if (animFrame) cancelAnimationFrame(animFrame);
         
-        // Configurar y mostrar el video en pantalla AR
-        arVideo.src = AR_VIDEO_URL;
+        // Configurar video AR: sin controles, loop, autoplay
+        arVideo.src = VIDEO_URL;
         arVideo.load();
-        // Intentar reproducción automática (muted por políticas del navegador)
         arVideo.muted = true;
-        const playPromise = arVideo.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(e => {
-            console.warn("Autoplay bloqueado, pero el usuario puede darle play manualmente", e);
-            updateStatus("✅ QR detectado! Toque ▶️ en el video AR para iniciar", false);
-          });
-        }
+        arVideo.loop = true;
+        arVideo.controls = false;  // sin barra de controles
+        arVideo.play().catch(e => console.log("Autoplay necesitó interacción", e));
         
-        // Mostrar contenedor AR con animación
-        arScreenDiv.classList.add('active');
-        updateStatus("✨ ¡REALIDAD AUMENTADA ACTIVADA! ✨ Video flotante listo", false);
-        
-        // Pequeño efecto: agregar mensaje temporal en la pantalla AR
-        setTimeout(() => {
-          if (arVideo.paused && !arVideo.playing) {
-            // sugerencia si no se reproduce automáticamente
-            arVideo.controls = true;
-          }
-        }, 500);
+        arScreen.classList.add('active');
+        updateStatus("✨ REALIDAD AUMENTADA ACTIVADA ✨ Video holográfico");
       }
       
-      // Función que reinicia toda la experiencia: oculta video AR, reinicia escaneo, limpia estado
-      function resetExperience() {
-        // Si ya está oculto y escaneando, evitar doble reinicio
-        if (!videoShown && scanningActive) {
-          // ya escaneando, pero podemos reforzar
-          updateStatus("🔁 Escaneando nuevamente...", false);
-          return;
-        }
-        
-        // Ocultar pantalla AR
-        arScreenDiv.classList.remove('active');
-        // Pausar y limpiar video AR
+      // Reiniciar toda la experiencia
+      function resetAR() {
+        if (!videoActive && scanning) return; // ya en escaneo
+        arScreen.classList.remove('active');
         arVideo.pause();
         arVideo.src = "";
         arVideo.load();
+        videoActive = false;
+        scanning = true;
         
-        // Resetear flags
-        videoShown = false;
-        scanningActive = true;
-        
-        // Si había un loop anterior, cancelarlo y reiniciar escaneo
-        if (animationFrameId) {
-          cancelAnimationFrame(animationFrameId);
-          animationFrameId = null;
-        }
-        
-        updateStatus("🔍 Escaneo reactivado. Apunta a QR: AR_VIDEO_TRIGGER", false);
-        
-        // Asegurar que el stream de cámara está activo y empezar escaneo
-        if (stream && stream.active) {
-          startScanningLoop();
+        if (animFrame) cancelAnimationFrame(animFrame);
+        if (mediaStream && mediaStream.active) {
+          startScanLoop();
         } else {
-          // Caso borde: reintentar cámara
-          initCamera().then(() => startScanningLoop()).catch(err => {
-            updateStatus("❌ Error al reiniciar cámara: " + err.message, true);
-          });
+          initCamera().then(startScanLoop).catch(e => updateStatus("Error cámara: " + e.message, true));
+        }
+        updateStatus("🔁 Escaneo reiniciado. Busca QR: AR_VIDEO_TRIGGER");
+      }
+      
+      // Escaneo de QR desde el frame de cámara
+      async function scanQR() {
+        if (!scanning) return;
+        if (!cameraVideo.videoWidth || cameraVideo.readyState < 2) return;
+        
+        const width = cameraVideo.videoWidth;
+        const height = cameraVideo.videoHeight;
+        let scanW = 480;
+        let scanH = Math.floor((height * scanW) / width);
+        if (scanH < 200) scanH = 300;
+        qrCanvas.width = scanW;
+        qrCanvas.height = scanH;
+        
+        ctx.drawImage(cameraVideo, 0, 0, width, height, 0, 0, scanW, scanH);
+        const imgData = ctx.getImageData(0, 0, scanW, scanH);
+        const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "dontInvert" });
+        
+        if (code && code.data === EXPECTED_QR && !videoActive) {
+          updateStatus("✅ QR válido. Abriendo pantalla AR...");
+          setTimeout(() => showARScreen(), 80);
+        } else if (code && code.data !== EXPECTED_QR && code.data.length > 0) {
+          updateStatus(`⚠️ QR incorrecto: "${code.data.substring(0, 20)}"`, false);
         }
       }
       
-      // Lógica de detección de QR a partir del stream de video
-      async function scanQRFromFrame() {
-        if (!scanningActive) return;
-        if (!videoElement || videoElement.readyState < 2) {
-          // video no listo aún
-          return;
-        }
-        
-        const videoWidth = videoElement.videoWidth;
-        const videoHeight = videoElement.videoHeight;
-        if (videoWidth === 0 || videoHeight === 0) return;
-        
-        // Escalar canvas para performance (ancho máximo 480px manteniendo proporción)
-        let scanWidth = 480;
-        let scanHeight = Math.floor((videoHeight * scanWidth) / videoWidth);
-        if (scanHeight < 200) scanHeight = 300;
-        
-        canvas.width = scanWidth;
-        canvas.height = scanHeight;
-        
-        // Dibujar frame actual del video en el canvas
-        ctx.drawImage(videoElement, 0, 0, videoWidth, videoHeight, 0, 0, scanWidth, scanHeight);
-        
-        // Obtener datos de la imagen para jsQR
-        const imageData = ctx.getImageData(0, 0, scanWidth, scanHeight);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert",
-        });
-        
-        if (code && code.data) {
-          const qrContent = code.data.trim();
-          if (qrContent === EXPECTED_QR_TEXT && !videoShown && scanningActive) {
-            // ¡QR correcto detectado!
-            updateStatus("🎯 ¡QR válido! Abriendo experiencia de Realidad Aumentada...");
-            // pequeña pausa para feedback visual
-            setTimeout(() => {
-              if (scanningActive && !videoShown) {
-                showARVideo();
-              }
-            }, 100);
-          } else if (qrContent !== EXPECTED_QR_TEXT && qrContent.length > 0) {
-            // Código incorrecto, avisar pero seguir escaneando
-            updateStatus(`⚠️ QR detectado: "${qrContent.substring(0, 20)}..." (se espera: ${EXPECTED_QR_TEXT})`, false);
-            // No detener, solo feedback breve
-          } else if (!code.data && scanningActive) {
-            // no qr visible o no coincide, pero no saturamos mensajes
-            if (statusDiv.innerText.includes("Escaneando")) {
-              // evita spam, mantenemos mensaje principal
-            }
-          }
-        } else {
-          // No QR, mensaje genérico si pasó mucho tiempo
-          if (!videoShown && scanningActive && Math.random() < 0.02) {
-            // sutil actualización, no inundar
-            updateStatus("🔎 Buscando código QR... (texto exacto: AR_VIDEO_TRIGGER)", false);
-          }
-        }
-      }
-      
-      // Loop de escaneo continuo
-      function startScanningLoop() {
-        if (!scanningActive) return;
-        
-        const scanLoop = () => {
-          if (!scanningActive) return;
-          if (videoElement && videoElement.readyState >= 2 && !videoShown) {
-            scanQRFromFrame();
-          }
-          if (scanningActive && !videoShown) {
-            animationFrameId = requestAnimationFrame(scanLoop);
+      function startScanLoop() {
+        if (!scanning) return;
+        const loop = () => {
+          if (scanning && !videoActive) {
+            scanQR();
+            animFrame = requestAnimationFrame(loop);
           } else {
-            animationFrameId = null;
+            animFrame = null;
           }
         };
-        
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        animationFrameId = requestAnimationFrame(scanLoop);
+        if (animFrame) cancelAnimationFrame(animFrame);
+        animFrame = requestAnimationFrame(loop);
       }
       
-      // Inicializar cámara (con cámara trasera si es posible)
       async function initCamera() {
         try {
-          // Limpiar stream anterior si existe
-          if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-          }
-          
-          const constraints = {
-            video: {
-              facingMode: { exact: "environment" },  // cámara trasera para AR
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            }
-          };
-          
-          // Fallback a cualquier cámara si environment falla
+          if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+          const constraints = { video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } };
           try {
-            stream = await navigator.mediaDevices.getUserMedia(constraints);
-          } catch (envError) {
-            console.warn("Cámara trasera no disponible, usando frontal por defecto");
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+          } catch (e) {
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
           }
-          
-          if (stream) {
-            videoElement.srcObject = stream;
-            await videoElement.play();
-            updateStatus("✅ Cámara activa. Escanea el código QR.", false);
-            return true;
-          } else {
-            throw new Error("No se pudo obtener el stream de video");
-          }
+          cameraVideo.srcObject = mediaStream;
+          await cameraVideo.play();
+          updateStatus("📷 Cámara lista. Escanea el código QR.");
+          return true;
         } catch (err) {
-          console.error("Error al acceder a la cámara:", err);
-          let errorMsg = "❌ No se puede acceder a la cámara. Permisos o hardware no soportado.";
-          if (err.name === "NotAllowedError") errorMsg = "🔒 Permiso de cámara denegado. Actívalo en la configuración del navegador.";
-          if (err.name === "NotFoundError") errorMsg = "📷 No se encontró ninguna cámara en este dispositivo.";
-          updateStatus(errorMsg, true);
+          let errMsg = "No se pudo acceder a la cámara. Permisos?";
+          if (err.name === "NotAllowedError") errMsg = "🔒 Permiso de cámara denegado.";
+          updateStatus(errMsg, true);
           return false;
         }
       }
       
-      // Arrancar la aplicación completa: cámara + loop QR
       async function bootstrap() {
-        const cameraReady = await initCamera();
-        if (cameraReady) {
-          // esperar que el video tenga dimensiones
-          videoElement.addEventListener('loadedmetadata', () => {
-            if (scanningActive && !videoShown) {
-              startScanningLoop();
-            }
-          });
-          // si ya tiene datos, iniciar de inmediato
-          if (videoElement.readyState >= 2) {
-            startScanningLoop();
-          } else {
-            // event fallback
-            videoElement.addEventListener('canplay', () => {
-              if (scanningActive && !videoShown) startScanningLoop();
-            }, { once: false });
-          }
-        } else {
-          updateStatus("⚠️ No se pudo iniciar la cámara. Revisa permisos.", true);
-        }
+        const ok = await initCamera();
+        if (ok) startScanLoop();
       }
       
-      // Inicialización y eventos de botón
-      resetBtn.addEventListener('click', () => {
-        resetExperience();
-      });
-      
-      // Si el usuario toca la pantalla AR (video) silencioso, pero no interfiere
-      arScreenDiv.addEventListener('click', (e) => {
-        // Si el video está pausado, permitir reproducción manual sin conflictos
-        if (arVideo.paused && videoShown) {
-          arVideo.play().catch(e => console.log("play requería interacción"));
-        }
-      });
-      
-      // Evitar que el contenedor demo interfiera con el reset / cámara
-      const demoDiv = document.querySelector('.demo-qr-container');
-      if (demoDiv) {
-        demoDiv.addEventListener('click', (e) => e.stopPropagation());
-      }
-      
-      // Iniciar todo cuando el DOM esté listo
-      window.addEventListener('DOMContentLoaded', () => {
-        bootstrap();
-      });
-      
-      // Si se sale de la página o cierra, liberar recursos (opcional)
+      resetBtn.addEventListener('click', resetAR);
+      window.addEventListener('load', bootstrap);
       window.addEventListener('beforeunload', () => {
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-        }
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+        if (animFrame) cancelAnimationFrame(animFrame);
       });
-      
-      // Adicional: Manejar cuando la pestaña se oculta para ahorrar recursos (opcional)
-      let hiddenFlag = false;
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          if (animationFrameId && scanningActive) {
-            cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-            hiddenFlag = true;
-          }
-        } else {
-          if (hiddenFlag && scanningActive && !videoShown && stream && stream.active) {
-            startScanningLoop();
-            hiddenFlag = false;
-          }
-        }
-      });
-      
     })();
   </script>
 </body>
