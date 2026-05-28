@@ -1,25 +1,619 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Video flotante RA</title>
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/2.2.1/aframe/build/aframe-ar.js"></script>
-  </head>
-  <body style="margin:0; overflow:hidden;">
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
-      
-      <!-- Marcador QR (puedes reemplazar por tu propio patrón QR) -->
-      <a-marker type="pattern" url="qr-marker.patt">
-        <!-- Plano donde se incrusta el video -->
-        <a-video 
-          src="https://www.youtube.com/embed/I9rWj2blNKk?autoplay=1&controls=0"
-          width="0.3" height="0.3" position="0 0 0.05">
-        </a-video>
-      </a-marker>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>AR Flotante: YouTube en Realidad Aumentada</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* Evita selección de texto en toda la UI (más limpio) */
+        }
 
-      <a-entity camera></a-entity>
-    </a-scene>
-  </body>
+        body {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Segoe UI', 'Roboto', system-ui, -apple-system, sans-serif;
+            background: #000;
+            position: relative;
+            touch-action: pan-x pan-y; /* Permite scroll solo si es necesario, pero prevenimos con overflow */
+        }
+
+        /* === CAPA DE CÁMARA EN VIVO (REALIDAD) === */
+        .camera-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            overflow: hidden;
+            background: #0a0a0a;
+        }
+
+        #videoCam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(1);
+            /* La cámara trasera se muestra sin espejo, aspecto natural */
+        }
+
+        /* Mensaje cuando la cámara no está activa aún */
+        .camera-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: radial-gradient(circle at center, #1a2a3a, #000000);
+            color: white;
+            text-align: center;
+            z-index: 2;
+            backdrop-filter: blur(4px);
+            font-weight: 500;
+            gap: 20px;
+        }
+
+        .camera-placeholder p {
+            background: rgba(0,0,0,0.6);
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
+            backdrop-filter: blur(8px);
+        }
+
+        /* Botón principal estilo AR */
+        .btn-ar {
+            background: #ff4d4d;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 60px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.6);
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: inherit;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .btn-ar:active {
+            transform: scale(0.96);
+            background: #e03a3a;
+        }
+
+        /* === VENTANA FLOTANTE (PANTALLA DE RA) === */
+        .floating-ar-player {
+            position: fixed;
+            z-index: 100;
+            width: 290px;
+            background: rgba(18, 22, 35, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 20px 35px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+            transition: box-shadow 0.2s ease;
+            cursor: default;
+            /* Posición inicial flotante (centrada ligeramente arriba) */
+            top: 15%;
+            left: 5%;
+            /* Ajuste para móvil: ancho responsivo pero cómodo */
+            max-width: calc(100vw - 40px);
+        }
+
+        /* handle de arrastre (zona táctil) */
+        .drag-handle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 24px 24px 0 0;
+            cursor: grab;
+            touch-action: none;  /* Mejora el arrastre táctil */
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .handle-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: white;
+            text-shadow: 0 1px 2px black;
+            letter-spacing: 0.5px;
+        }
+
+        .handle-title span {
+            font-size: 1.2rem;
+        }
+
+        .controls-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .icon-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 1rem;
+            padding: 6px 10px;
+            border-radius: 40px;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: 0.1s;
+            font-weight: bold;
+        }
+
+        .icon-btn:active {
+            background: rgba(255,255,255,0.5);
+            transform: scale(0.92);
+        }
+
+        /* Contenedor del video de YouTube */
+        .youtube-container {
+            position: relative;
+            width: 100%;
+            background: black;
+            border-radius: 0 0 24px 24px;
+            overflow: hidden;
+        }
+
+        .youtube-iframe {
+            width: 100%;
+            height: 180px;
+            border: none;
+            display: block;
+        }
+
+        /* Panel de control de cambio de video */
+        .video-control-panel {
+            padding: 12px;
+            background: rgba(0,0,0,0.5);
+            border-top: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+
+        .video-input {
+            flex: 2;
+            background: rgba(20,20,40,0.9);
+            border: 1px solid #ffaa44;
+            border-radius: 40px;
+            padding: 8px 12px;
+            color: white;
+            font-size: 0.75rem;
+            font-family: monospace;
+            outline: none;
+        }
+
+        .video-input::placeholder {
+            color: #aaa;
+        }
+
+        .small-btn {
+            background: #ffaa44;
+            border: none;
+            border-radius: 40px;
+            padding: 6px 14px;
+            font-weight: bold;
+            font-size: 0.7rem;
+            color: #1e1e2a;
+            cursor: pointer;
+        }
+
+        .reset-pos {
+            background: #2c7da0;
+            color: white;
+        }
+
+        /* Mensajes de error o info */
+        .info-message {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(12px);
+            padding: 12px;
+            border-radius: 30px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #ffcc88;
+            z-index: 200;
+            pointer-events: none;
+            border: 1px solid rgba(255,215,0,0.3);
+            font-weight: 500;
+        }
+
+        /* Ajustes para que el floating no tape botones importantes */
+        @media (max-width: 600px) {
+            .floating-ar-player {
+                width: 260px;
+            }
+            .youtube-iframe {
+                height: 160px;
+            }
+            .video-control-panel {
+                padding: 8px;
+            }
+            .btn-ar {
+                padding: 12px 24px;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Capa de cámara (AR background) -->
+<div class="camera-layer" id="cameraLayer">
+    <video id="videoCam" autoplay playsinline muted></video>
+    <div id="cameraPlaceholder" class="camera-placeholder">
+        <p>📱 REALIDAD AUMENTADA</p>
+        <button id="startCameraBtn" class="btn-ar">🎥 ACTIVAR CÁMARA AR</button>
+        <p style="font-size: 0.75rem; background: none;">Al activar, verás el mundo real a través de tu cámara<br>y el video flotante de YouTube aparecerá encima ✨</p>
+    </div>
+</div>
+
+<!-- VENTANA FLOTANTE (Pantalla de RA con YouTube) -->
+<div id="floatingWindow" class="floating-ar-player" style="top: 12%; left: 5%;">
+    <div class="drag-handle" id="dragHandle">
+        <div class="handle-title">
+            <span>🪄</span> <span>YouTube AR · Flotante</span>
+        </div>
+        <div class="controls-group">
+            <button id="resetPosBtn" class="icon-btn" title="Restaurar posición">⟳</button>
+        </div>
+    </div>
+    <div class="youtube-container">
+        <iframe id="youtubeFrame" class="youtube-iframe" 
+                src="https://www.youtube.com/embed/6e0nN6ghkAU?controls=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1"
+                title="YouTube AR Player" frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>
+        </iframe>
+    </div>
+    <div class="video-control-panel">
+        <input type="text" id="videoIdInput" class="video-input" placeholder="ID o URL de YouTube" value="6e0nN6ghkAU">
+        <button id="changeVideoBtn" class="small-btn">▶ CAMBIAR</button>
+        <button id="refreshVideoBtn" class="small-btn reset-pos" title="Recargar video">🔄</button>
+    </div>
+</div>
+
+<div id="infoToast" class="info-message">✨ Arrastra la barra superior para mover la pantalla AR</div>
+
+<script>
+    (function() {
+        // ---------- ELEMENTOS ----------
+        const videoCam = document.getElementById('videoCam');
+        const startBtn = document.getElementById('startCameraBtn');
+        const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+        const floatingWindow = document.getElementById('floatingWindow');
+        const dragHandle = document.getElementById('dragHandle');
+        const resetPosBtn = document.getElementById('resetPosBtn');
+        const youtubeFrame = document.getElementById('youtubeFrame');
+        const videoIdInput = document.getElementById('videoIdInput');
+        const changeVideoBtn = document.getElementById('changeVideoBtn');
+        const refreshVideoBtn = document.getElementById('refreshVideoBtn');
+        const infoToast = document.getElementById('infoToast');
+        
+        let activeStream = null;
+        let isDragging = false;
+        let startX = 0, startY = 0;
+        let currentLeft = 0, currentTop = 0;
+        
+        // Variables de posición inicial referenciadas
+        let initialLeftPx = 0, initialTopPx = 0;
+        
+        // ---- FUNCIONES DE CÁMARA (AR Live View) ----
+        async function startARCamera() {
+            // Solicitar cámara trasera si es posible (environment)
+            try {
+                if (activeStream) {
+                    // detener stream previo si existe
+                    stopCameraStream();
+                }
+                const constraints = {
+                    video: {
+                        facingMode: { exact: "environment" }  // Cámara trasera para AR realista
+                    }
+                };
+                // Fallback si no encuentra environment
+                let stream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch (errEnv) {
+                    console.warn("Cámara trasera no disponible, usando cámara frontal o predeterminada", errEnv);
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                }
+                videoCam.srcObject = stream;
+                activeStream = stream;
+                // Ocultar placeholder y mostrar experiencia AR
+                cameraPlaceholder.style.display = 'none';
+                // Asegurar reproducción
+                await videoCam.play().catch(e => console.log("auto-play error manejado", e));
+                showTemporalMessage("✅ Cámara AR activa · Disfruta la realidad aumentada", 2500);
+            } catch (error) {
+                console.error("Error al acceder a la cámara:", error);
+                cameraPlaceholder.innerHTML = `<p>❌ No se pudo acceder a la cámara.<br>Permite el acceso en la configuración.</p>
+                                                <button id="startCameraBtn" class="btn-ar">🔄 REINTENTAR</button>`;
+                const newBtn = document.getElementById('startCameraBtn');
+                if (newBtn) newBtn.addEventListener('click', startARCamera);
+                showTemporalMessage("⚠️ Permiso de cámara necesario para RA", 3000);
+            }
+        }
+        
+        function stopCameraStream() {
+            if (activeStream) {
+                activeStream.getTracks().forEach(track => track.stop());
+                activeStream = null;
+            }
+            videoCam.srcObject = null;
+        }
+        
+        // ---- FUNCIONES PARA EL YOUTUBE FLOTANTE ----
+        function extractVideoId(urlOrId) {
+            let input = urlOrId.trim();
+            // Si ya es un ID de 11 caracteres alfanuméricos (aprox)
+            if (/^[a-zA-Z0-9_-]{11}$/.test(input)) {
+                return input;
+            }
+            // Intentar parsear URLs de youtube
+            const patterns = [
+                /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?\/]+)/,
+                /youtube\.com\/embed\/([^?\/]+)/,
+                /youtube\.com\/v\/([^?\/]+)/
+            ];
+            for (let pattern of patterns) {
+                const match = input.match(pattern);
+                if (match && match[1]) return match[1];
+            }
+            // Si no, devolver el mismo (quizá es ID directo)
+            return input;
+        }
+        
+        function updateYouTubeVideo() {
+            let rawValue = videoIdInput.value;
+            let videoId = extractVideoId(rawValue);
+            if (!videoId || videoId.length < 5) {
+                showTemporalMessage("⚠️ ID o URL inválida, usando demo por defecto", 2000);
+                videoId = "6e0nN6ghkAU"; // video demo AR tecnológico
+                videoIdInput.value = videoId;
+            }
+            const newSrc = `https://www.youtube.com/embed/${videoId}?controls=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`;
+            youtubeFrame.src = newSrc;
+            showTemporalMessage(`🎬 Video AR actualizado`, 1500);
+        }
+        
+        function refreshVideo() {
+            // Recargar el mismo iframe sin cambiar ID
+            let currentSrc = youtubeFrame.src;
+            youtubeFrame.src = currentSrc;
+            showTemporalMessage(`🔄 Recargando video flotante`, 1200);
+        }
+        
+        // ---- DRAG & DROP PARA MÓVIL (pantalla flotante) ----
+        function getElementPosition() {
+            const rect = floatingWindow.getBoundingClientRect();
+            return { left: rect.left, top: rect.top };
+        }
+        
+        function setElementPosition(left, top) {
+            // Asegurar márgenes para que no se salga de la pantalla completamente
+            const maxLeft = window.innerWidth - floatingWindow.offsetWidth - 8;
+            const maxTop = window.innerHeight - floatingWindow.offsetHeight - 30;
+            const minLeft = 8;
+            const minTop = 40;
+            let newLeft = Math.min(maxLeft, Math.max(minLeft, left));
+            let newTop = Math.min(maxTop, Math.max(minTop, top));
+            floatingWindow.style.left = newLeft + 'px';
+            floatingWindow.style.top = newTop + 'px';
+            // Asegurar que posicion en px, no mezcla con %
+            floatingWindow.style.right = 'auto';
+            floatingWindow.style.bottom = 'auto';
+        }
+        
+        function resetPosition() {
+            // Reset a posición inicial centrada cerca de la izquierda pero visible
+            let defaultLeft = Math.min(window.innerWidth - floatingWindow.offsetWidth - 20, 20);
+            let defaultTop = Math.min(window.innerHeight * 0.12, window.innerHeight - floatingWindow.offsetHeight - 60);
+            if (defaultLeft < 8) defaultLeft = 8;
+            if (defaultTop < 40) defaultTop = 40;
+            setElementPosition(defaultLeft, defaultTop);
+            showTemporalMessage("📍 Posición restaurada", 1000);
+        }
+        
+        function onTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = floatingWindow.getBoundingClientRect();
+            startX = touch.clientX - rect.left;
+            startY = touch.clientY - rect.top;
+            currentLeft = rect.left;
+            currentTop = rect.top;
+            isDragging = true;
+            floatingWindow.style.transition = "none";
+        }
+        
+        function onTouchMove(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            let newLeft = touch.clientX - startX;
+            let newTop = touch.clientY - startY;
+            setElementPosition(newLeft, newTop);
+        }
+        
+        function onTouchEnd(e) {
+            isDragging = false;
+            floatingWindow.style.transition = "";
+            // Opcional: guardar posición en localStorage si se desea
+        }
+        
+        // Mouse events para depuración en escritorio (también compatible con móvil)
+        function onMouseDown(e) {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            const rect = floatingWindow.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+            currentLeft = rect.left;
+            currentTop = rect.top;
+            isDragging = true;
+            floatingWindow.style.transition = "none";
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        }
+        
+        function onMouseMove(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            let newLeft = e.clientX - startX;
+            let newTop = e.clientY - startY;
+            setElementPosition(newLeft, newTop);
+        }
+        
+        function onMouseUp() {
+            isDragging = false;
+            floatingWindow.style.transition = "";
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        }
+        
+        function showTemporalMessage(text, duration = 2000) {
+            const toast = document.getElementById('infoToast');
+            if (!toast) return;
+            toast.textContent = text;
+            toast.style.opacity = '1';
+            clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(() => {
+                if (toast) toast.style.opacity = '0.7';
+                setTimeout(() => {
+                    if(toast && toast.textContent === text) toast.textContent = '✨ Arrastra la barra superior para mover la pantalla AR';
+                }, 300);
+            }, duration);
+        }
+        
+        // Función para ajustar posición cuando cambia orientación o resize
+        function handleOrientationChange() {
+            if (!floatingWindow) return;
+            const rect = floatingWindow.getBoundingClientRect();
+            // Si se sale de pantalla, reposicionar dentro de los límites
+            let newLeft = rect.left;
+            let newTop = rect.top;
+            const maxLeft = window.innerWidth - floatingWindow.offsetWidth - 8;
+            const maxTop = window.innerHeight - floatingWindow.offsetHeight - 40;
+            const minLeft = 8;
+            const minTop = 40;
+            let modified = false;
+            if (newLeft < minLeft) { newLeft = minLeft; modified = true; }
+            if (newTop < minTop) { newTop = minTop; modified = true; }
+            if (newLeft > maxLeft) { newLeft = maxLeft; modified = true; }
+            if (newTop > maxTop) { newTop = maxTop; modified = true; }
+            if (modified) {
+                setElementPosition(newLeft, newTop);
+            }
+        }
+        
+        // ---- Inicialización y eventos ----
+        function init() {
+            // Configurar arrastre táctil en el handle
+            dragHandle.addEventListener('touchstart', onTouchStart, { passive: false });
+            dragHandle.addEventListener('touchmove', onTouchMove, { passive: false });
+            dragHandle.addEventListener('touchend', onTouchEnd);
+            dragHandle.addEventListener('touchcancel', onTouchEnd);
+            // Soporte mouse (escritorio)
+            dragHandle.addEventListener('mousedown', onMouseDown);
+            
+            // Botón reset posición
+            resetPosBtn.addEventListener('click', resetPosition);
+            
+            // Controles de YouTube
+            changeVideoBtn.addEventListener('click', updateYouTubeVideo);
+            refreshVideoBtn.addEventListener('click', refreshVideo);
+            
+            // Permitir que al presionar Enter en input cambie video
+            videoIdInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') updateYouTubeVideo();
+            });
+            
+            // Iniciar cámara con el botón dedicado
+            startBtn.addEventListener('click', startARCamera);
+            
+            // Si por algún motivo el usuario quiere reactivar después de error, el placeholder se regenera pero el listener existe
+            // También forzar que la ventana flotante se pueda mover incluso sin cámara activada (funciona desde el inicio)
+            
+            // Ajustar posición inicial en porcentaje? Mejor convertir a px para que el drag sea consistente
+            // Convertimos la posición inicial (% a px) al cargar.
+            function fixInitialPosition() {
+                const style = window.getComputedStyle(floatingWindow);
+                let leftVal = style.left;
+                let topVal = style.top;
+                if (leftVal.includes('%')) {
+                    let percentLeft = parseFloat(leftVal) / 100;
+                    let newLeft = window.innerWidth * percentLeft;
+                    let percentTop = parseFloat(topVal) / 100;
+                    let newTop = window.innerHeight * percentTop;
+                    setElementPosition(newLeft, newTop);
+                } else {
+                    // Si ya está en px, aseguramos que esté dentro de los límites
+                    const rect = floatingWindow.getBoundingClientRect();
+                    setElementPosition(rect.left, rect.top);
+                }
+            }
+            fixInitialPosition();
+            window.addEventListener('resize', () => {
+                fixInitialPosition();
+                handleOrientationChange();
+            });
+            window.addEventListener('orientationchange', () => {
+                setTimeout(() => {
+                    fixInitialPosition();
+                    handleOrientationChange();
+                }, 50);
+            });
+            
+            // Si el usuario ya dio permisos de cámara antes? No, pero se muestra el placeholder hasta que haga clic.
+            // Mostrar mensaje inicial de ayuda
+            setTimeout(() => {
+                showTemporalMessage("🎯 Activa la cámara para ver el mundo real + video flotante", 4000);
+            }, 500);
+            
+            // Prevenir que el iframe capture eventos de arrastre en el handle de forma incorrecta
+            // No es necesario, el drag está en el handle, la zona de video no interfiere.
+            
+            // Configuración adicional: para evitar que el teclado mueva la pantalla al cambiar input, sin conflicto
+            videoIdInput.addEventListener('touchstart', (e) => e.stopPropagation());
+            videoIdInput.addEventListener('mousedown', (e) => e.stopPropagation());
+            
+            // Pequeña mejora: Si el navegador soporta picture in picture para el iframe, se puede usar con el botón nativo.
+            console.log("AR Flotante listo - Android compatible");
+        }
+        
+        // Si el usuario vuelve a mostrar la cámara después de un error, permitir recuperación del stream
+        init();
+    })();
+</script>
+</body>
 </html>
-
