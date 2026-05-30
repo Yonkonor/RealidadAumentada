@@ -10,20 +10,26 @@
             overflow: hidden;
             font-family: sans-serif;
         }
-        #start-overlay {
+        #ui {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.85);
+            z-index: 10;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 300;
-            color: white;
+            pointer-events: none;
+        }
+        #start-panel {
+            background: rgba(0,0,0,0.85);
+            padding: 30px;
+            border-radius: 20px;
             text-align: center;
+            color: white;
+            pointer-events: auto;
         }
         #start-btn {
             background: #4CAF50;
@@ -32,11 +38,10 @@
             padding: 15px 40px;
             font-size: 20px;
             border-radius: 30px;
-            margin-top: 20px;
+            margin-top: 15px;
             cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
-        #info {
+        #status {
             position: absolute;
             bottom: 20px;
             left: 50%;
@@ -45,37 +50,31 @@
             color: white;
             padding: 10px 20px;
             border-radius: 20px;
-            z-index: 100;
             font-size: 14px;
-            pointer-events: none;
-        }
-        .loader-text {
-            font-size: 18px;
-            margin-top: 20px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <!-- Pantalla de inicio que pide interacción -->
-    <div id="start-overlay">
-        <h1>📱 Realidad Aumentada</h1>
-        <p>Apunta al marcador Hiro después de iniciar</p>
-        <button id="start-btn">🎥 Iniciar cámara</button>
-        <p class="loader-text">(Acepta el permiso de cámara cuando aparezca)</p>
+    <div id="ui">
+        <div id="start-panel">
+            <h2>📱 Realidad Aumentada</h2>
+            <p>Necesitamos acceso a tu cámara</p>
+            <button id="start-btn">🎥 Iniciar cámara</button>
+        </div>
+        <div id="status"></div>
     </div>
 
-    <div id="info" style="display:none;">📷 Acerca la cámara al marcador Hiro</div>
-
-    <!-- Escena AR (oculta hasta que el usuario toque el botón) -->
+    <!-- Escena AR: oculta hasta que el usuario dé el permiso con el botón -->
     <a-scene
         id="ar-scene"
-        vr-mode-ui="enabled: false"
         embedded
+        vr-mode-ui="enabled: false"
         arjs="sourceType: webcam; trackingMethod: best; debugUIEnabled: false;"
         renderer="logarithmicDepthBuffer: true;"
-        style="visibility: hidden;"
+        style="display: none;"
     >
-        <a-marker preset="hiro">
+        <a-marker preset="hiro" id="marker">
             <a-video
                 src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
                 width="0.9"
@@ -92,41 +91,52 @@
         <a-entity camera></a-entity>
     </a-scene>
 
-    <!-- Librerías desde CDN estables -->
+    <!-- Librerías -->
     <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.0/dist/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ar.js@2.2.2/aframe/build/aframe-ar.min.js"></script>
 
     <script>
-        const overlay = document.getElementById('start-overlay');
+        const startPanel = document.getElementById('start-panel');
         const scene = document.getElementById('ar-scene');
-        const info = document.getElementById('info');
+        const statusDiv = document.getElementById('status');
         const startBtn = document.getElementById('start-btn');
 
-        startBtn.addEventListener('click', async () => {
-            try {
-                // Forzar la solicitud de permiso de cámara con un gesto del usuario
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                // Detener el stream propio, AR.js usará el suyo después
-                stream.getTracks().forEach(track => track.stop());
-                
-                // Mostrar la escena y ocultar el overlay
-                overlay.style.display = 'none';
-                scene.style.visibility = 'visible';
-                info.style.display = 'block';
-                
-                // Forzar inicialización de AR.js si fuera necesario
-                if (scene.components['arjs']) {
-                    // El componente arjs se inicializa automáticamente al mostrarse
-                }
-            } catch (err) {
-                alert('❌ No se pudo acceder a la cámara. Verifica los permisos.\nError: ' + err.message);
-            }
+        function setStatus(msg) {
+            statusDiv.textContent = msg;
+            console.log('[AR]', msg);
+        }
+
+        // Al hacer clic, mostramos la escena. AR.js se inicializará y pedirá la cámara.
+        startBtn.addEventListener('click', () => {
+            setStatus('⏳ Solicitando cámara...');
+            startPanel.style.display = 'none';
+            scene.style.display = ''; // quita display:none, vuelve visible
+            // AR.js arranca automáticamente al hacerse visible la escena
         });
 
-        // Por si acaso, ocultar el loader cuando el video de AR.js esté listo
+        // Eventos de AR.js para informar al usuario
+        scene.addEventListener('loaded', () => {
+            setStatus('✅ Escena cargada. Buscando marcador...');
+        });
+
+        // Estos eventos se emiten en el marcador
+        const marker = document.getElementById('marker');
+        marker.addEventListener('markerFound', () => {
+            setStatus('🎯 ¡Marcador detectado! Video en pantalla.');
+        });
+        marker.addEventListener('markerLost', () => {
+            setStatus('🔍 Marcador perdido. Sigue apuntando.');
+        });
+
+        // Si hay error con el video de la cámara
+        window.addEventListener('arjs-video-error', (e) => {
+            setStatus('❌ Error al acceder a la cámara. Verifica permisos.');
+            console.error('AR.js video error:', e.detail);
+        });
+
+        // Si el video de AR se carga correctamente
         window.addEventListener('arjs-video-loaded', () => {
-            // Solo para feedback, no bloquea nada
-            console.log('✅ Cámara AR lista');
+            setStatus('📷 Cámara lista. Apunta al marcador Hiro.');
         });
     </script>
 </body>
