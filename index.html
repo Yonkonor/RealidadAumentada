@@ -3,12 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Video 3D en RA con marcador</title>
+    <title>Video 3D RA - Marcador Hiro</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             font-family: sans-serif;
+        }
+        #start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+            color: white;
+            text-align: center;
+        }
+        #start-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            border-radius: 30px;
+            margin-top: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
         #info {
             position: absolute;
@@ -23,36 +49,33 @@
             font-size: 14px;
             pointer-events: none;
         }
-        .arjs-loader {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 15px 30px;
-            border-radius: 30px;
-            z-index: 200;
-            font-size: 16px;
-            text-align: center;
+        .loader-text {
+            font-size: 18px;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <div class="arjs-loader" id="loader">🎥 Cargando cámara...<br>Apunta al marcador</div>
-    <div id="info">📷 Acerca la cámara a la imagen marcador</div>
+    <!-- Pantalla de inicio que pide interacción -->
+    <div id="start-overlay">
+        <h1>📱 Realidad Aumentada</h1>
+        <p>Apunta al marcador Hiro después de iniciar</p>
+        <button id="start-btn">🎥 Iniciar cámara</button>
+        <p class="loader-text">(Acepta el permiso de cámara cuando aparezca)</p>
+    </div>
 
-    <!-- Escena de Realidad Aumentada -->
+    <div id="info" style="display:none;">📷 Acerca la cámara al marcador Hiro</div>
+
+    <!-- Escena AR (oculta hasta que el usuario toque el botón) -->
     <a-scene
+        id="ar-scene"
         vr-mode-ui="enabled: false"
         embedded
         arjs="sourceType: webcam; trackingMethod: best; debugUIEnabled: false;"
         renderer="logarithmicDepthBuffer: true;"
+        style="visibility: hidden;"
     >
-        <!-- Marcador: por defecto usamos el patrón "Hiro" (incluido en AR.js).
-             Puedes cambiarlo más abajo por tu propia imagen. -->
-        <a-marker preset="hiro" id="marker-video">
-            <!-- Plano de video que aparece sobre el marcador -->
+        <a-marker preset="hiro">
             <a-video
                 src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
                 width="0.9"
@@ -64,26 +87,46 @@
                 muted
                 playsinline
                 webkit-playsinline
-                preload="auto"
             ></a-video>
         </a-marker>
-
-        <!-- Cámara de AR -->
         <a-entity camera></a-entity>
     </a-scene>
 
-    <!-- Librerías necesarias -->
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <!-- AR.js para tracking con marcadores -->
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <!-- Librerías desde CDN estables -->
+    <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.0/dist/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ar.js@2.2.2/aframe/build/aframe-ar.min.js"></script>
 
     <script>
-        // Ocultar el mensaje de carga cuando la cámara esté lista
-        window.addEventListener('arjs-video-loaded', () => {
-            const loader = document.getElementById('loader');
-            if (loader) {
-                loader.style.display = 'none';
+        const overlay = document.getElementById('start-overlay');
+        const scene = document.getElementById('ar-scene');
+        const info = document.getElementById('info');
+        const startBtn = document.getElementById('start-btn');
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                // Forzar la solicitud de permiso de cámara con un gesto del usuario
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                // Detener el stream propio, AR.js usará el suyo después
+                stream.getTracks().forEach(track => track.stop());
+                
+                // Mostrar la escena y ocultar el overlay
+                overlay.style.display = 'none';
+                scene.style.visibility = 'visible';
+                info.style.display = 'block';
+                
+                // Forzar inicialización de AR.js si fuera necesario
+                if (scene.components['arjs']) {
+                    // El componente arjs se inicializa automáticamente al mostrarse
+                }
+            } catch (err) {
+                alert('❌ No se pudo acceder a la cámara. Verifica los permisos.\nError: ' + err.message);
             }
+        });
+
+        // Por si acaso, ocultar el loader cuando el video de AR.js esté listo
+        window.addEventListener('arjs-video-loaded', () => {
+            // Solo para feedback, no bloquea nada
+            console.log('✅ Cámara AR lista');
         });
     </script>
 </body>
