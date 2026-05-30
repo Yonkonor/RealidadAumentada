@@ -9,27 +9,22 @@
             margin: 0;
             overflow: hidden;
             font-family: sans-serif;
+            background: #000;
         }
-        #ui {
+        #start-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 10;
+            background: rgba(0,0,0,0.9);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            pointer-events: none;
-        }
-        #start-panel {
-            background: rgba(0,0,0,0.85);
-            padding: 30px;
-            border-radius: 20px;
-            text-align: center;
+            z-index: 100;
             color: white;
-            pointer-events: auto;
+            text-align: center;
         }
         #start-btn {
             background: #4CAF50;
@@ -38,11 +33,11 @@
             padding: 15px 40px;
             font-size: 20px;
             border-radius: 30px;
-            margin-top: 15px;
+            margin-top: 20px;
             cursor: pointer;
         }
         #status {
-            position: absolute;
+            position: fixed;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
@@ -50,54 +45,25 @@
             color: white;
             padding: 10px 20px;
             border-radius: 20px;
+            z-index: 50;
             font-size: 14px;
-            text-align: center;
+            pointer-events: none;
         }
     </style>
-</head>
-<body>
-    <div id="ui">
-        <div id="start-panel">
-            <h2>📱 Realidad Aumentada</h2>
-            <p>Necesitamos acceso a tu cámara</p>
-            <button id="start-btn">🎥 Iniciar cámara</button>
-        </div>
-        <div id="status"></div>
-    </div>
-
-    <!-- Escena AR: oculta hasta que el usuario dé el permiso con el botón -->
-    <a-scene
-        id="ar-scene"
-        embedded
-        vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; trackingMethod: best; debugUIEnabled: false;"
-        renderer="logarithmicDepthBuffer: true;"
-        style="display: none;"
-    >
-        <a-marker preset="hiro" id="marker">
-            <a-video
-                src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-                width="0.9"
-                height="0.5"
-                position="0 0 0.1"
-                rotation="-90 0 0"
-                autoplay
-                loop
-                muted
-                playsinline
-                webkit-playsinline
-            ></a-video>
-        </a-marker>
-        <a-entity camera></a-entity>
-    </a-scene>
-
-    <!-- Librerías -->
+    <!-- Librerías cargadas de antemano (sin escena aún) -->
     <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.0/dist/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ar.js@2.2.2/aframe/build/aframe-ar.min.js"></script>
+</head>
+<body>
+    <div id="start-overlay">
+        <h2>📱 Realidad Aumentada</h2>
+        <p>Necesitamos acceso a tu cámara</p>
+        <button id="start-btn">🎥 Iniciar cámara</button>
+    </div>
+    <div id="status"></div>
 
     <script>
-        const startPanel = document.getElementById('start-panel');
-        const scene = document.getElementById('ar-scene');
+        const overlay = document.getElementById('start-overlay');
         const statusDiv = document.getElementById('status');
         const startBtn = document.getElementById('start-btn');
 
@@ -106,37 +72,73 @@
             console.log('[AR]', msg);
         }
 
-        // Al hacer clic, mostramos la escena. AR.js se inicializará y pedirá la cámara.
-        startBtn.addEventListener('click', () => {
-            setStatus('⏳ Solicitando cámara...');
-            startPanel.style.display = 'none';
-            scene.style.display = ''; // quita display:none, vuelve visible
-            // AR.js arranca automáticamente al hacerse visible la escena
-        });
+        startBtn.addEventListener('click', async () => {
+            setStatus('⏳ Solicitando permiso de cámara...');
+            try {
+                // 1. Pedir permiso de cámara con un gesto de usuario (así aparece el diálogo)
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: { facingMode: 'environment' }
+                });
+                // 2. Detenemos el stream provisional (AR.js usará el suyo)
+                stream.getTracks().forEach(track => track.stop());
+                setStatus('✅ Permiso concedido. Iniciando RA...');
 
-        // Eventos de AR.js para informar al usuario
-        scene.addEventListener('loaded', () => {
-            setStatus('✅ Escena cargada. Buscando marcador...');
-        });
+                // 3. Ocultamos overlay
+                overlay.style.display = 'none';
 
-        // Estos eventos se emiten en el marcador
-        const marker = document.getElementById('marker');
-        marker.addEventListener('markerFound', () => {
-            setStatus('🎯 ¡Marcador detectado! Video en pantalla.');
-        });
-        marker.addEventListener('markerLost', () => {
-            setStatus('🔍 Marcador perdido. Sigue apuntando.');
-        });
+                // 4. Creamos la escena completa (AR.js pedirá cámara automáticamente y ya tendrá permiso)
+                const scene = document.createElement('a-scene');
+                scene.setAttribute('embedded', '');
+                scene.setAttribute('vr-mode-ui', 'enabled: false');
+                scene.setAttribute('arjs', 'sourceType: webcam; trackingMethod: best; debugUIEnabled: false;');
+                scene.setAttribute('renderer', 'logarithmicDepthBuffer: true;');
 
-        // Si hay error con el video de la cámara
-        window.addEventListener('arjs-video-error', (e) => {
-            setStatus('❌ Error al acceder a la cámara. Verifica permisos.');
-            console.error('AR.js video error:', e.detail);
-        });
+                // Marcador Hiro con video
+                const marker = document.createElement('a-marker');
+                marker.setAttribute('preset', 'hiro');
+                marker.setAttribute('id', 'marker');
 
-        // Si el video de AR se carga correctamente
-        window.addEventListener('arjs-video-loaded', () => {
-            setStatus('📷 Cámara lista. Apunta al marcador Hiro.');
+                const video = document.createElement('a-video');
+                video.setAttribute('src', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4');
+                video.setAttribute('width', '0.9');
+                video.setAttribute('height', '0.5');
+                video.setAttribute('position', '0 0 0.1');
+                video.setAttribute('rotation', '-90 0 0');
+                video.setAttribute('autoplay', '');
+                video.setAttribute('loop', '');
+                video.setAttribute('muted', '');
+                video.setAttribute('playsinline', '');
+                video.setAttribute('webkit-playsinline', '');
+
+                marker.appendChild(video);
+                scene.appendChild(marker);
+
+                // Cámara
+                const camera = document.createElement('a-entity');
+                camera.setAttribute('camera', '');
+                scene.appendChild(camera);
+
+                document.body.appendChild(scene);
+
+                // Eventos de estado del marcador
+                marker.addEventListener('markerFound', () => {
+                    setStatus('🎯 ¡Marcador detectado! Video en pantalla.');
+                });
+                marker.addEventListener('markerLost', () => {
+                    setStatus('🔍 Buscando marcador...');
+                });
+
+                // Escucha eventos de AR.js
+                window.addEventListener('arjs-video-loaded', () => {
+                    setStatus('📷 Cámara lista. Apunta al marcador Hiro.');
+                });
+
+            } catch (err) {
+                setStatus('❌ Permiso denegado o error: ' + err.message);
+                // Mostrar de nuevo el botón para intentar
+                overlay.style.display = 'flex';
+            }
         });
     </script>
 </body>
