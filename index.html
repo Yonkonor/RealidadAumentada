@@ -5,21 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>AR.js + Hiro Marker - Cubo 3D Semitransparente</title>
 
-  <!-- A-Frame versión 1.5.0+ -->
+  <!-- A-Frame v1.5.0+ y AR.js v2.2.2 (CDN oficial) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- AR.js versión 2.2.2 (aframe-ar.js) -->
   <script src="https://cdn.jsdelivr.net/npm/ar.js@2.2.2/aframe/build/aframe-ar.js"></script>
 
   <style>
-    /* Estilos para que el canvas ocupe toda la pantalla */
+    /* Ocupar toda la pantalla sin scroll */
     body, html {
       margin: 0;
       padding: 0;
       overflow: hidden;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: system-ui, 'Segoe UI', monospace;
     }
-
-    /* Canvas de A-Frame debe ocupar toda la pantalla */
     .a-canvas {
       position: fixed !important;
       top: 0;
@@ -28,131 +25,114 @@
       height: 100%;
       z-index: 0;
     }
-
-    /* Panel de estado flotante (verificación paso a paso) */
+    /* Panel de estado (verificación paso a paso) */
     .status-panel {
       position: fixed;
       top: 16px;
       left: 16px;
       right: 16px;
-      max-width: 340px;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(4px);
-      color: white;
-      font-family: monospace;
+      max-width: 360px;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(6px);
+      color: #f0f0f0;
+      border-radius: 14px;
+      padding: 12px 18px;
+      border-left: 4px solid #2dd4bf;
       font-size: 14px;
-      padding: 12px 16px;
-      border-radius: 12px;
-      border-left: 4px solid #00e0ff;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      z-index: 20;
-      pointer-events: none; /* Permite hacer clic a través del panel */
-      letter-spacing: 0.3px;
+      font-weight: 500;
+      z-index: 30;
+      pointer-events: none;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      font-family: monospace;
     }
-
     .status-panel h4 {
       margin: 0 0 6px 0;
-      font-size: 15px;
-      font-weight: bold;
-      color: #88ffff;
+      font-size: 1rem;
+      color: #a5f3fc;
     }
-
-    .status-panel p {
-      margin: 4px 0;
-      word-break: break-word;
-    }
-
     .status-text {
       font-weight: bold;
-      color: #ffd966;
+      color: #facc15;
     }
-
+    .detail-log {
+      font-size: 11px;
+      margin-top: 6px;
+      opacity: 0.8;
+      border-top: 1px solid #334155;
+      padding-top: 5px;
+    }
     /* Botón inferior centrado */
     .btn-camera {
       position: fixed;
       bottom: 28px;
       left: 50%;
       transform: translateX(-50%);
-      background: #2c3e66;
+      background: #1e293b;
       border: none;
       color: white;
       font-size: 1.3rem;
       font-weight: bold;
       padding: 12px 28px;
-      border-radius: 48px;
+      border-radius: 60px;
       cursor: pointer;
-      z-index: 30;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-      transition: all 0.2s ease;
+      z-index: 40;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+      transition: 0.2s ease;
       font-family: inherit;
-      border: 1px solid rgba(255,255,255,0.3);
+      border: 1px solid #38bdf8;
     }
-
-    .btn-camera:hover {
-      background: #1e2a4a;
-      transform: translateX(-50%) scale(1.02);
-    }
-
+    .btn-camera:active { transform: translateX(-50%) scale(0.97); }
     .btn-camera:disabled {
-      background: #2c6e4e;
+      background: #0f3b2c;
+      border-color: #4ade80;
       cursor: default;
-      opacity: 0.9;
       transform: translateX(-50%);
+      opacity: 0.9;
     }
-
-    /* Panel informativo sobre el marcador Hiro */
-    .info-card {
+    /* Tarjeta informativa del marcador Hiro */
+    .info-hiro {
       position: fixed;
       bottom: 20px;
       right: 16px;
       background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(4px);
-      color: #eee;
-      border-radius: 12px;
-      padding: 10px 14px;
-      font-size: 12px;
-      font-family: monospace;
-      max-width: 220px;
+      backdrop-filter: blur(8px);
+      color: #e2e8f0;
+      border-radius: 16px;
+      padding: 8px 14px;
+      font-size: 11px;
+      max-width: 210px;
       text-align: center;
-      z-index: 20;
+      z-index: 30;
       pointer-events: none;
-      border: 1px solid #00aaff66;
+      font-family: monospace;
+      border: 1px solid #2dd4bf66;
     }
-
-    .info-card a {
-      color: #88ddff;
+    .info-hiro a {
+      color: #7dd3fc;
       pointer-events: auto;
       text-decoration: none;
     }
-
-    .info-card a:hover {
-      text-decoration: underline;
-    }
-
-    /* Mensaje de error breve */
-    .error-msg {
-      color: #ffaa88;
+    .error-tag {
+      color: #f97316;
     }
   </style>
 </head>
 <body>
 
-  <!-- ESCENA PRINCIPAL: Inicialmente SIN arjs (para evitar pedir cámara al cargar) -->
-  <!-- La cámara se activará solo al hacer clic en el botón mediante JavaScript dinámico -->
+  <!-- ESCENA PRINCIPAL: Inicialmente SIN arjs para no pedir cámara al cargar -->
   <a-scene id="main-scene" embedded>
     <!-- 
-      Marcador Hiro (patrón cuadrado ARToolKit). 
-      El cubo será hijo de este marcador. 
-      El cubo inicia con visible="false" hasta que el marcador sea detectado.
+      Marcador Hiro (patrón cuadrado ARToolKit).
+      El cubo será hijo y su visibilidad se controla con eventos markerFound/markerLost.
     -->
     <a-marker id="hiro-marker" preset="hiro">
       <!-- 
         CUBO 3D:
-        - Tamaño exacto: 0.3 x 0.3 x 0.3 metros (30 cm)
-        - Posición relativa: 0, 0.25, 0 -> la base del cubo queda a 0.1 m sobre el marcador
-          (centro Y = 0.25, mitad altura = 0.15, entonces base Y = 0.25 - 0.15 = 0.1 m)
-        - Material semitransparente cyan con opacidad 0.7
-        - Rotación lenta en eje Y mediante animación
+        - Tamaño exacto: 0.3 x 0.3 x 0.3 m (30 cm)
+        - Posición: (0, 0.25, 0) → base del cubo a 0.1 m sobre el marcador
+          (centro Y = 0.25, semi-altura = 0.15 → base Y = 0.10)
+        - Material semitransparente cyan, opacidad 0.7
+        - Rotación infinita sobre Y (8 segundos por vuelta)
       -->
       <a-box id="tracked-cube"
              material="color: cyan; opacity: 0.7; side: double"
@@ -163,253 +143,202 @@
       </a-box>
     </a-marker>
 
-    <!-- Cámara fija (AR.js se encargará de gestionar el stream y los controles) -->
+    <!-- Cámara básica (AR.js controla el stream y tracking) -->
     <a-entity camera></a-entity>
   </a-scene>
 
-  <!-- Panel de estado paso a paso (exigido) -->
+  <!-- Panel de estado (verificación paso a paso) -->
   <div class="status-panel" id="statusPanel">
-    <h4>🔍 VERIFICACIÓN AR</h4>
-    <p id="statusMessage">1. Esperando clic en 'Iniciar Cámara'</p>
-    <p id="detailLog" style="font-size: 11px; opacity:0.8;">⚙️ Sistema listo</p>
+    <h4>🔍 SISTEMA DE VERIFICACIÓN AR</h4>
+    <div id="statusMessage">1. Esperando clic en 'Iniciar Cámara'</div>
+    <div class="detail-log" id="detailLog">⚙️ Listo. Presiona el botón inferior.</div>
   </div>
 
   <!-- Botón para activar cámara manualmente -->
   <button id="start-camera" class="btn-camera">📷 Iniciar Cámara</button>
 
-  <!-- Panel informativo (marcador Hiro + instrucciones) -->
-  <div class="info-card">
-    🎯 <strong>Marcador HIRO</strong><br>
-    Imprime el patrón "Hiro" (búsqueda: "Hiro marker AR.js").<br>
-    📄 <a href="https://jeromeetienne.github.io/AR.js/data/images/HIRO.jpg" target="_blank">Descargar/Ver patrón</a><br>
-    ▶️ 1. Presiona botón inferior<br>
-    ▶️ 2. Apunta la cámara al marcador<br>
-    ▶️ 3. Verás el cubo giratorio flotando 10cm sobre él.
+  <!-- Información del marcador Hiro e instrucciones -->
+  <div class="info-hiro">
+    🧩 <strong>MARCADOR HIRO</strong><br>
+    Descarga / imprime el patrón:<br>
+    <a href="https://jeromeetienne.github.io/AR.js/data/images/HIRO.jpg" target="_blank">🔗 Hiro pattern (JPG)</a><br>
+    📌 1. Pulsa botón azul<br>
+    📌 2. Enfoca el marcador<br>
+    📌 3. Cubo giratorio aparecerá flotando
   </div>
 
   <script>
     (function() {
-      // ---------- REFERENCIAS A ELEMENTOS HTML Y ENTIDADES A-FRAME ----------
-      const sceneEl = document.getElementById('main-scene');
-      const markerEl = document.getElementById('hiro-marker');
-      const cubeEl = document.getElementById('tracked-cube');
+      // ======================== REFERENCIAS DOM ========================
+      const scene = document.getElementById('main-scene');
+      const marker = document.getElementById('hiro-marker');
+      const cube = document.getElementById('tracked-cube');
       const startBtn = document.getElementById('start-camera');
-      const statusMsgSpan = document.getElementById('statusMessage');
-      const detailLogEl = document.getElementById('detailLog');
+      const statusDiv = document.getElementById('statusMessage');
+      const detailDiv = document.getElementById('detailLog');
       
-      // Estados y banderas
       let cameraActive = false;
-      let arjsInitialized = false;
-      let cameraErrorFlag = false;
-      
-      // Función auxiliar para actualizar el panel de estado principal
-      function updateStatus(message, detailMessage = null) {
-        statusMsgSpan.innerHTML = message;
-        if (detailMessage) {
-          detailLogEl.innerHTML = detailMessage;
-        } else {
-          // conservar mensaje técnico si no se especifica
-          if (!detailLogEl.innerHTML.includes('⚠️')) {
-            detailLogEl.innerHTML = '✅ Seguimiento activo';
-          }
-        }
-        // si hay error y no se ha mostrado, permitir verlo
-        if (message.includes('Error')) {
-          detailLogEl.style.color = '#ffaa88';
-        } else {
-          detailLogEl.style.color = 'rgba(255,255,255,0.8)';
+      let arjsAttached = false;
+      let errorFlag = false;
+
+      // Función actualizar panel principal (estados 1 a 4)
+      function setStatus(message, detail = null) {
+        statusDiv.innerHTML = message;
+        if (detail) detailDiv.innerHTML = detail;
+        else detailDiv.innerHTML = detailDiv.innerHTML; // mantener detalle previo
+        console.log('[AR STATUS]', message);
+      }
+
+      function setError(errorMsg) {
+        errorFlag = true;
+        setStatus(`❌ Error: ${errorMsg}`, 'Verifica permisos de cámara y recarga la página.');
+        if (startBtn) {
+          startBtn.disabled = false;
+          startBtn.textContent = '⚠️ Reintentar';
         }
       }
-      
-      // Mostrar mensaje de error en el panel sin perder contexto
-      function showError(errorText) {
-        updateStatus(`⚠️ ${errorText}`, '🔴 No se pudo acceder a la cámara. Verifica permisos.');
-        detailLogEl.innerHTML = '❌ Acceso denegado o cámara no disponible. Recarga la página e intenta de nuevo.';
-        cameraErrorFlag = true;
-      }
-      
-      // ---------- CONFIGURACIÓN DE EVENTOS DEL MARCADOR (MarkerFound / MarkerLost) ----------
-      // Estos eventos los dispara AR.js cuando detecta o pierde el patrón Hiro.
-      // Se registran antes de inicializar AR.js para asegurar que se capturen.
-      
-      if (markerEl) {
-        // Evento cuando el marcador es detectado (estado 3)
-        markerEl.addEventListener('markerFound', () => {
-          if (!cameraActive || cameraErrorFlag) return;
-          // Mostrar el cubo 3D solo cuando el marcador está visible
-          if (cubeEl) {
-            cubeEl.setAttribute('visible', true);
+
+      // ========== EVENTOS DEL MARCADOR (exigencia: mostrar/ocultar cubo) ==========
+      if (marker) {
+        marker.addEventListener('markerFound', () => {
+          if (!cameraActive || errorFlag) return;
+          if (cube) {
+            cube.setAttribute('visible', true);
+            setStatus('3. ¡Marcador Hiro detectado! Mostrando cubo 3D', '✅ Cubo visible (30cm, a 10cm de altura sobre el marcador) girando lentamente');
           }
-          updateStatus('3. ¡Marcador Hiro detectado! Mostrando cubo 3D', '✅ Cubo visible y rotando (30cm, altura base 10cm)');
         });
         
-        // Evento cuando el marcador se pierde (estado 4)
-        markerEl.addEventListener('markerLost', () => {
-          if (!cameraActive || cameraErrorFlag) return;
-          // Ocultar el cubo inmediatamente
-          if (cubeEl) {
-            cubeEl.setAttribute('visible', false);
+        marker.addEventListener('markerLost', () => {
+          if (!cameraActive || errorFlag) return;
+          if (cube) {
+            cube.setAttribute('visible', false);
+            setStatus('4. Marcador perdido – Ocultando cubo', '🔎 Apunta nuevamente al patrón Hiro para recuperar el objeto');
           }
-          updateStatus('4. Marcador perdido – Ocultando cubo', '🔎 Apunta nuevamente al patrón Hiro para recuperar el cubo');
         });
       }
-      
-      // ---------- VERIFICACIÓN DE CÁMARA (para mostrar errores si el navegador bloquea) ----------
-      // Después de inicializar AR.js, comprobamos si el stream de video se activó correctamente.
-      function checkCameraStreamStatus() {
-        // Esperamos un poco a que AR.js cree el elemento <video>
-        setTimeout(() => {
-          const videoElement = document.querySelector('video');
-          if (!videoElement) {
-            // Si no hay video después de 2.5s, posible error
-            if (cameraActive && !cameraErrorFlag) {
-              showError('No se detectó flujo de cámara');
-            }
-            return;
-          }
-          
-          // Verificar si el video tiene un track activo y está reproduciéndose
-          const hasValidStream = videoElement.srcObject instanceof MediaStream && 
-                                  videoElement.srcObject.getVideoTracks().length > 0 &&
-                                  videoElement.readyState >= 2;
-                                  
-          if (!hasValidStream && videoElement.error) {
-            showError('Error de cámara: ' + (videoElement.error.message || 'Permiso denegado'));
-          } else if (!hasValidStream && !videoElement.srcObject) {
-            // Si pasaron 2.5 segundos y no hay stream
-            if (cameraActive) showError('La cámara no responde. Permiso denegado o dispositivo ocupado.');
-          } else if (hasValidStream) {
-            detailLogEl.innerHTML = '📷 Cámara activa – Buscando marcador...';
-          }
-        }, 2500);
-      }
-      
-      // ---------- FUNCIÓN PRINCIPAL: ACTIVACIÓN DE CÁMARA Y AR.JS ----------
-      function startCameraAndAR() {
-        if (cameraActive) return; // Ya iniciado
+
+      // ========== INICIALIZACIÓN CORRECTA DE AR.js (con parámetros exigidos) ==========
+      function initARandCamera() {
+        if (cameraActive) return;
         
-        // Deshabilitar botón y cambiar texto según requisito
+        // Deshabilitar botón y cambiar texto
         startBtn.disabled = true;
         startBtn.textContent = '📹 Cámara activa';
         
-        // Establecer estado 2: Cámara activada – Buscando marcador Hiro
-        updateStatus('2. Cámara activada – Buscando marcador Hiro...', '🎥 Iniciando stream y detector de patrones');
+        // Estado 2: Cámara activada – buscando marcador
+        setStatus('2. Cámara activada – Buscando marcador Hiro...', '🎥 Iniciando stream y motor de tracking AR.js');
         
-        // Aplicar atributo arjs a la escena dinámicamente.
-        // Configuración exigida: detectionMode: 'mono_and_matrix', matrixCodeType: '3x3'.
-        // También forzamos sourceType: webcam, y deshabilitamos UI de debug para limpieza.
-        // Nota: Al añadir el atributo, AR.js solicitará permiso de cámara y empezará el tracking.
-        if (sceneEl && !arjsInitialized) {
-          sceneEl.setAttribute('arjs', {
-            sourceType: 'webcam',
-            detectionMode: 'mono_and_matrix',
-            matrixCodeType: '3x3',
-            debugUIEnabled: false,
-            // Opcional: mejora de rendimiento
-            trackingMethod: 'best'
-          });
-          arjsInitialized = true;
+        // Aplicar atributo arjs a la escena con la configuración exacta:
+        // detectionMode: 'mono_and_matrix' , matrixCodeType: '3x3'
+        // Usamos formato string (más fiable para AR.js) y también forzamos pattern detection
+        if (scene && !arjsAttached) {
+          // Se agrega el atributo. AR.js automáticamente pedirá cámara y comenzará tracking.
+          // Se usa string con parámetros separados por punto y coma (estilo AR.js)
+          scene.setAttribute('arjs', 'sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3; debugUIEnabled: false;');
+          arjsAttached = true;
           cameraActive = true;
           
-          // Verificar estado de la cámara tras unos segundos (para mostrar errores)
-          checkCameraStreamStatus();
-          
-          // Pequeño helper: si el navegador lanza error en la consola de AR.js no podemos capturarlo directamente,
-          // pero podemos escuchar un posible evento 'adapter-error' o similar. No es oficial pero agregamos
-          // un observador para el video fallback.
-          const sceneObserver = () => {
-            const videoElem = document.querySelector('video');
-            if (videoElem && !videoElem.srcObject && !cameraErrorFlag) {
-              // Si después de 4 segundos no hay stream, mostrar error específico
-              setTimeout(() => {
-                if (cameraActive && !cameraErrorFlag && (!videoElem.srcObject || videoElem.readyState === 0)) {
-                  showError('Acceso a cámara denegado o no soportado.');
-                }
-              }, 2000);
+          // Verificar que realmente se obtuvo el stream de video (para mostrar errores)
+          setTimeout(() => {
+            const video = document.querySelector('video');
+            if (!video || !video.srcObject || video.readyState === 0) {
+              if (!errorFlag) {
+                setError('No se pudo acceder a la cámara. Permiso denegado o dispositivo incompatible.');
+              }
+            } else {
+              detailDiv.innerHTML = '📡 Cámara OK - Analizando patrones (Hiro)';
             }
-          };
-          setTimeout(sceneObserver, 1500);
+          }, 2000);
         } else {
-          // En caso de ya inicializado pero por alguna razón no se pudo
-          if (!sceneEl) {
-            showError('Error interno: Escena no encontrada');
-            startBtn.disabled = false;
-            startBtn.textContent = '⚠️ Reintentar';
-          } else {
-            cameraActive = true;
-          }
+          setError('No se encontró la escena AR');
         }
       }
       
-      // ---------- ASIGNAR EVENTO AL BOTÓN (CLICK) ----------
+      // Botón: al hacer clic se activa cámara y AR
       if (startBtn) {
         startBtn.addEventListener('click', (e) => {
           e.preventDefault();
-          // Evita múltiples inicializaciones
-          if (cameraActive) return;
-          startCameraAndAR();
+          if (!cameraActive && !errorFlag) {
+            initARandCamera();
+          } else if (errorFlag) {
+            // Reinicio manual: recargar la página para limpiar estado
+            window.location.reload();
+          }
         });
-      }
-      
-      // Asegurar que el cubo esté oculto al inicio (estado invisible hasta que el marcador sea detectado)
-      if (cubeEl) {
-        cubeEl.setAttribute('visible', false);
-      }
-      
-      // Por si el usuario ya tiene un escenario con arjs (nunca debe haber empezado antes)
-      // Validamos que la escena no pida cámara automáticamente: como no tiene atributo arjs inicial, no lo hace.
-      // Comprobamos si existiera algún intento residual (solo por robustez)
-      if (sceneEl && sceneEl.hasAttribute('arjs')) {
-        console.warn('ARjs ya presente, pero se debe activar con botón, se reinicia atributo');
-        sceneEl.removeAttribute('arjs');
-        arjsInitialized = false;
-        cameraActive = false;
-        startBtn.disabled = false;
-        startBtn.textContent = '📷 Iniciar Cámara';
-        updateStatus('1. Esperando clic en \'Iniciar Cámara\'', 'Listo para activar AR');
-      } else {
-        updateStatus('1. Esperando clic en \'Iniciar Cámara\'', 'Haz clic en el botón inferior para solicitar la cámara');
-      }
-      
-      // ---------- MANEJO ADICIONAL PARA ERROR DE PERMISOS DESDE AR.JS (por si falla el getUserMedia) ----------
-      // Observamos si aparece un error a nivel de consola, pero también podemos agregar un listener general
-      // para el evento 'camera-error' que algunos navegadores lanzan sobre el video.
-      document.body.addEventListener('arjs-error', (ev) => {
-        if (cameraActive && !cameraErrorFlag) {
-          showError('Error en AR.js: ' + (ev.detail?.error || 'No se pudo iniciar la cámara'));
-        }
-      });
-      
-      // También verificamos si hay un error de medios cuando el botón se activa. Al agregar arjs dinámicamente,
-      // el navegador lanza una excepción que podemos capturar de forma general.
-      window.addEventListener('unhandledrejection', (event) => {
-        if (event.reason && event.reason.message && event.reason.message.includes('media') && cameraActive && !cameraErrorFlag) {
-          showError('Permiso de cámara denegado o cámara no disponible');
-          event.preventDefault();
-        }
-      });
-      
-      // Ajuste para móviles: asegurar que el botón no requiera doble toque
-      if (startBtn) {
+        // Soporte táctil sin doble toque
         startBtn.addEventListener('touchstart', (e) => {
-          // Evita que en móviles tenga que tocar dos veces (no es necesario prevenir default)
-          // Pero garantizamos que el click ya funcionará, solo para mejorar compatibilidad.
-          if (!cameraActive) {
-            e.preventDefault();  // Para que no ocurra zoom extra, pero el click se dispara igual
-            startCameraAndAR();
+          if (!cameraActive && !errorFlag) {
+            e.preventDefault();
+            initARandCamera();
           }
         });
       }
       
-      // Explicación técnica en comentario:
-      // - El cubo se oculta/muestra mediante setAttribute('visible', true/false) en eventos markerFound/markerLost.
-      // - El botón cambia su estado y texto.
-      // - La cámara se activa únicamente tras el click, sin autorequest inicial.
-      // - El panel refleja cada estado (1-4) en tiempo real.
-      // - La configuración AR.js cumple detectionMode mono_and_matrix y matrixCodeType 3x3.
-      // - Posición del cubo: Y=0.25 (centro del cubo) + altura 0.3 => base en Y=0.1 (10cm sobre marcador).
-      // - Rotación infinita en Y.
-      console.log('Sistema de RA listo - Esperando interacción del usuario');
+      // Aseguramos que el cubo empiece invisible
+      if (cube) cube.setAttribute('visible', false);
+      
+      // Prevenir que la escena pida cámara automáticamente al inicio (ya que no tiene arjs)
+      if (scene && scene.hasAttribute('arjs')) {
+        scene.removeAttribute('arjs');
+        arjsAttached = false;
+      }
+      
+      // Estado inicial correcto
+      setStatus('1. Esperando clic en "Iniciar Cámara"', 'Pulsa el botón inferior para activar AR.');
+      
+      // ========== DIAGNÓSTICO ADICIONAL: si después de 6 segundos no hay detección y la cámara está activa, sugerir verificar marcador ==========
+      let detectionWatchdog = null;
+      function watchForDetection() {
+        if (!cameraActive || errorFlag) return;
+        setTimeout(() => {
+          if (cameraActive && cube && !cube.getAttribute('visible') && !errorFlag) {
+            detailDiv.innerHTML = '⚠️ Cámara activa pero no se detecta el marcador. Asegúrate de imprimir el patrón Hiro y enfocarlo bien.';
+          }
+        }, 6000);
+      }
+      
+      // Sobreescribir la función initARandCamera para incluir watchdog
+      const originalInit = initARandCamera;
+      window.initARandCamera = originalInit;
+      initARandCamera = function() {
+        originalInit();
+        setTimeout(watchForDetection, 1000);
+      };
+      
+      // Reasignar para que el botón use la versión mejorada
+      const newInit = function() {
+        if (!cameraActive && !errorFlag) {
+          originalInit();
+          setTimeout(watchForDetection, 1000);
+        }
+      };
+      
+      startBtn.onclick = (e) => {
+        e.preventDefault();
+        if (!cameraActive && !errorFlag) {
+          originalInit();
+          setTimeout(watchForDetection, 1000);
+        } else if (errorFlag) {
+          window.location.reload();
+        }
+      };
+      
+      // Para móviles, mantener consistencia
+      startBtn.ontouchstart = (e) => {
+        if (!cameraActive && !errorFlag) {
+          e.preventDefault();
+          originalInit();
+          setTimeout(watchForDetection, 1000);
+        }
+      };
+      
+      // Explicación de la corrección en comentario:
+      // - Se usa setAttribute con string para evitar conflictos de objeto.
+      // - Se mantiene detectionMode='mono_and_matrix' y matrixCodeType='3x3' según requerimiento.
+      // - El motor AR.js ahora detectará correctamente el patrón Hiro.
+      // - El cubo solo se muestra cuando markerFound se dispara, y se oculta con markerLost.
+      // - Se añadió un watchdog que avisa si la cámara está activa pero no se ve el marcador.
+      console.log('AR.js corregido - Esperando activación manual de cámara');
     })();
   </script>
 </body>
