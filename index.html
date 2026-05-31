@@ -1,361 +1,52 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>AR Marcador Hiro · Imagen 3D</title>
-
-  <!--
-    VERSIONES ESTABLES Y COMPATIBLES:
-    - A-Frame 1.4.2  (última versión 100% compatible con AR.js 3.x)
-    - AR.js 3.4.5    (build estable desde jsDelivr, no desde raw.githack)
-  -->
-  <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ar.js@3.4.5/aframe/build/aframe-ar.min.js"></script>
-
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: 'Courier New', monospace;
-      background: #000;
-      color: #e0e0ff;
-      overflow: hidden;
-    }
-
-    /* ── Pantalla de error de cámara ── */
-    #error-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 2000;
-      background: #0a0a1a;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 32px;
-      text-align: center;
-      gap: 16px;
-    }
-    #error-overlay.visible { display: flex; }
-    #error-overlay .icon { font-size: 52px; }
-    #error-overlay h2 {
-      font-size: 16px;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      color: #ff5577;
-    }
-    #error-overlay p {
-      font-size: 13px;
-      line-height: 1.7;
-      color: #8090bb;
-      max-width: 340px;
-    }
-    #error-overlay code {
-      background: #1a1a30;
-      padding: 2px 6px;
-      border-radius: 4px;
-      color: #a0b0ff;
-      font-size: 12px;
-    }
-    #error-overlay .btn {
-      margin-top: 8px;
-      padding: 10px 24px;
-      background: #2030aa;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 13px;
-      letter-spacing: 2px;
-      cursor: pointer;
-      text-transform: uppercase;
-    }
-    #error-overlay .btn:hover { background: #3040cc; }
-
-    /* ── Loading ── */
-    #loading {
-      position: fixed;
-      inset: 0;
-      z-index: 1500;
-      background: #0a0a1a;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
-      transition: opacity 0.6s;
-    }
-    #loading.hidden { opacity: 0; pointer-events: none; }
-    #loading .spinner {
-      width: 48px; height: 48px;
-      border: 3px solid #2030aa;
-      border-top-color: #a0a8ff;
-      border-radius: 50%;
-      animation: spin 0.9s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #loading p {
-      font-size: 11px;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      color: #6070aa;
-    }
-
-    /* ── HUD ── */
-    #hud {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      z-index: 999;
-      pointer-events: none;
-    }
-    #header {
-      width: 100%;
-      background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 100%);
-      padding: 14px 20px 28px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    #title {
-      font-size: 13px;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      color: #a0a8ff;
-      text-shadow: 0 0 12px rgba(140,140,255,0.8);
-    }
-    #status-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    #status-label {
-      font-size: 10px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: #6070aa;
-    }
-    #status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #ff4466;
-      box-shadow: 0 0 8px #ff4466;
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-    #status-dot.found {
-      background: #44ffaa;
-      box-shadow: 0 0 12px #44ffaa;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%       { opacity: 0.5; transform: scale(0.7); }
-    }
-
-    /* ── Instrucciones ── */
-    #instructions {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      z-index: 999;
-      pointer-events: none;
-      background: linear-gradient(0deg, rgba(0,0,0,0.88) 0%, transparent 100%);
-      padding: 28px 20px 20px;
-      text-align: center;
-    }
-    #instructions p {
-      font-size: 12px;
-      letter-spacing: 2px;
-      color: #7080cc;
-      text-transform: uppercase;
-    }
-    #instructions .highlight {
-      color: #a0a8ff;
-      text-shadow: 0 0 8px rgba(140,140,255,0.6);
-    }
-
-    /* ── Corner brackets ── */
-    .corner {
-      position: fixed;
-      z-index: 999;
-      width: 36px; height: 36px;
-      pointer-events: none;
-    }
-    .corner::before, .corner::after {
-      content: '';
-      position: absolute;
-      background: #a0a8ff;
-      box-shadow: 0 0 6px #a0a8ff;
-    }
-    .corner::before { width: 2px; height: 100%; }
-    .corner::after  { width: 100%; height: 2px; }
-    .corner.tl { top: 10px; left: 10px; }
-    .corner.tr { top: 10px; right: 10px; transform: scaleX(-1); }
-    .corner.bl { bottom: 10px; left: 10px; transform: scaleY(-1); }
-    .corner.br { bottom: 10px; right: 10px; transform: scale(-1); }
-
-    /* Link al marcador */
-    #marker-hint {
-      position: fixed;
-      top: 60px; right: 16px;
-      z-index: 999;
-      pointer-events: all;
-      background: rgba(10,10,30,0.85);
-      border: 1px solid #3040aa;
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-size: 10px;
-      letter-spacing: 2px;
-      color: #7080cc;
-      text-decoration: none;
-      text-transform: uppercase;
-      backdrop-filter: blur(4px);
-    }
-    #marker-hint:hover {
-      color: #a0a8ff;
-      border-color: #a0a8ff;
-    }
-
-    a-scene { width: 100vw !important; height: 100vh !important; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mi primera WebAR con AR.js</title>
+    <!-- CSS simple para quitar márgenes y que la pantalla se use al 100% -->
+    <style>
+        body { margin: 0; overflow: hidden; font-family: Arial, Helvetica, sans-serif; }
+        /* Este texto aparecerá antes de que la cámara se active o como ayuda */
+        .info {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            background: rgba(0,0,0,0.6);
+            padding: 8px;
+            z-index: 10;
+            pointer-events: none;
+        }
+    </style>
+    
+    <!-- 1. Importamos A-Frame (la base para la escena 3D) -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    
+    <!-- 2. Importamos AR.js para convertir esa escena 3D en Realidad Aumentada -->
+    <script src="https://cdn.jsdelivr.net/npm/ar.js@3.4.3/aframe/build/aframe-ar.js"></script>
 </head>
 <body>
+    <!-- Escena AR: el atributo 'arjs' activa el seguimiento de marcadores -->
+    <a-scene embedded arjs="detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
+        
+        <!-- Marcador predefinido 'hiro': se descarga e imprime desde la URL que se ve abajo -->
+        <a-marker preset="hiro">
+            <!-- El elemento que aparecerá encima del marcador: un cubo rojo animado -->
+            <a-box position="0 0.5 0" material="color: #FF3333;" scale="0.5 0.5 0.5"
+                   animation="property: rotation; to: 0 360 0; loop: true; dur: 3000">
+            </a-box>
+        </a-marker>
 
-  <!-- ══ LOADING ══ -->
-  <div id="loading">
-    <div class="spinner"></div>
-    <p>Iniciando cámara…</p>
-  </div>
-
-  <!-- ══ ERROR DE CÁMARA ══ -->
-  <div id="error-overlay">
-    <div class="icon">📷</div>
-    <h2>Sin acceso a la cámara</h2>
-    <p id="error-msg">No se pudo iniciar la cámara.</p>
-    <p style="font-size:12px; color:#556;">
-      Esta página <strong style="color:#a0b0ff;">requiere HTTPS</strong>.<br>
-      Funciona en <code>github.io</code> pero <strong>no</strong> en <code>file://</code> ni <code>http://</code>.
-    </p>
-    <button class="btn" onclick="location.reload()">↺ Reintentar</button>
-  </div>
-
-  <!-- ══ HUD ══ -->
-  <div id="hud">
-    <div id="header">
-      <span id="title">AR · Hiro Marker</span>
-      <div id="status-wrap">
-        <span id="status-label">Buscando…</span>
-        <div id="status-dot"></div>
-      </div>
+        <!-- Cámara necesaria para que AR.js capture el vídeo y posicione los objetos -->
+        <a-entity camera></a-entity>
+    </a-scene>
+    
+    <div class="info">
+        📍 Apunta la cámara al marcador HIRO para ver el cubo giratorio.
+        <br>🔗 <a href="https://jeromeetienne.github.io/AR.js/data/images/HIRO.jpg" target="_blank" style="color: #aaa;">Descargar marcador HIRO</a> (imprimir o mostrar en otra pantalla)
     </div>
-  </div>
-
-  <div class="corner tl"></div>
-  <div class="corner tr"></div>
-  <div class="corner bl"></div>
-  <div class="corner br"></div>
-
-  <a href="hiro-marker.png" target="_blank" id="marker-hint">📄 Marcador</a>
-
-  <div id="instructions">
-    <p>Apuntá la cámara al <span class="highlight">marcador Hiro</span></p>
-  </div>
-
-  <!-- ══ ESCENA A-FRAME + AR.js ══ -->
-  <a-scene
-    embedded
-    arjs="sourceType: webcam;
-          detectionMode: mono;
-          debugUIEnabled: false;
-          trackingMethod: best;"
-    vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true;"
-    id="arScene"
-  >
-    <a-assets>
-      <img id="arTextura" src="imagen.png" crossorigin="anonymous" />
-    </a-assets>
-
-    <!-- Marcador HIRO -->
-    <a-marker preset="hiro" id="hiMarker">
-
-      <!-- Imagen flotante a 10 cm (Y=0.1) sobre el marcador -->
-      <a-plane
-        src="#arTextura"
-        position="0 0.1 0"
-        rotation="-90 0 0"
-        width="1"
-        height="1"
-        material="side: double; transparent: true; alphaTest: 0.05;"
-        animation="property: rotation; to: -90 360 0; dur: 8000; easing: linear; loop: true;"
-      ></a-plane>
-
-      <!-- Halo bajo la imagen -->
-      <a-circle
-        position="0 0.002 0"
-        rotation="-90 0 0"
-        radius="0.55"
-        color="#6070ff"
-        opacity="0.15"
-        material="side: double;"
-      ></a-circle>
-
-    </a-marker>
-
-    <a-entity camera></a-entity>
-  </a-scene>
-
-  <script>
-    const loading   = document.getElementById('loading');
-    const errorDiv  = document.getElementById('error-overlay');
-    const errorMsg  = document.getElementById('error-msg');
-    const dot       = document.getElementById('status-dot');
-    const statusLbl = document.getElementById('status-label');
-    const marker    = document.getElementById('hiMarker');
-    const scene     = document.getElementById('arScene');
-
-    // ── 1. Verificar HTTPS ──────────────────────────────────────────────
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-      loading.classList.add('hidden');
-      errorMsg.textContent =
-        'Esta página debe abrirse desde HTTPS. ' +
-        'Publicala en GitHub Pages y volvé a intentarlo.';
-      errorDiv.classList.add('visible');
-    }
-
-    // ── 2. Detectar cuando la cámara arranca ────────────────────────────
-    scene.addEventListener('arjs-video-loaded', () => {
-      setTimeout(() => loading.classList.add('hidden'), 500);
-    });
-
-    // Fallback: ocultar loading tras 5 s aunque no llegue el evento
-    setTimeout(() => loading.classList.add('hidden'), 5000);
-
-    // ── 3. Capturar errores de cámara ───────────────────────────────────
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => {
-        // Permiso concedido — AR.js se encarga; cerramos este stream de prueba
-        stream.getTracks().forEach(t => t.stop());
-      })
-      .catch(err => {
-        loading.classList.add('hidden');
-        const msgs = {
-          NotAllowedError:  'Permiso de cámara denegado. Habilitalo en la configuración del navegador y recargá la página.',
-          NotFoundError:    'No se encontró ninguna cámara en este dispositivo.',
-          NotReadableError: 'La cámara está siendo usada por otra aplicación.',
-          OverconstrainedError: 'La cámara no cumple los requisitos mínimos.',
-        };
-        errorMsg.textContent = msgs[err.name] || `Error: ${err.message}`;
-        errorDiv.classList.add('visible');
-      });
-
-    // ── 4. Feedback de marcador ─────────────────────────────────────────
-    marker.addEventListener('markerFound', () => {
-      dot.classList.add('found');
-      statusLbl.textContent = '¡Detectado!';
-    });
-    marker.addEventListener('markerLost', () => {
-      dot.classList.remove('found');
-      statusLbl.textContent = 'Buscando…';
-    });
-  </script>
-
 </body>
 </html>
