@@ -1,83 +1,272 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>RA Hiro - Con botón de inicio</title>
-    <!-- A-Frame -->
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-    <!-- AR.js v2 -->
-    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.5/aframe/build/aframe-ar.min.js"></script>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-        }
-        #start-btn {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 15px 40px;
-            background: #0077ff;
-            color: white;
-            border: none;
-            border-radius: 30px;
-            font-size: 18px;
-            z-index: 100;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-        #start-btn:active {
-            background: #0055cc;
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>AR Marcador Hiro</title>
+
+  <!-- A-Frame + AR.js para AR basado en marcadores -->
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      overflow: hidden;
+      background: #000;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    /* La escena de A-Frame ocupa toda la pantalla */
+    a-scene {
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Panel de instrucciones inferior */
+    #ui {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      padding: 20px 16px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    #status {
+      background: rgba(10, 10, 30, 0.75);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      padding: 11px 22px;
+      border-radius: 24px;
+      font-size: 15px;
+      font-weight: 500;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      transition: background 0.4s ease, border-color 0.4s ease;
+      letter-spacing: 0.01em;
+    }
+
+    #status.found {
+      background: rgba(0, 180, 90, 0.8);
+      border-color: rgba(0, 255, 130, 0.35);
+    }
+
+    #hint {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.45);
+      text-align: center;
+    }
+
+    /* Indicador de carga */
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 9999;
+      transition: opacity 0.6s ease;
+    }
+
+    #loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(0, 212, 255, 0.2);
+      border-top-color: #00d4ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading p {
+      color: rgba(255,255,255,0.6);
+      font-size: 14px;
+    }
+  </style>
 </head>
 <body>
-    <button id="start-btn">Iniciar Realidad Aumentada</button>
 
-    <a-scene id="ar-scene" embedded arjs="sourceType: webcam; debugUIEnabled: true; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" 
-             vr-mode-ui="enabled: false" 
-             renderer="antialias: true; precision: medium;"
-             style="visibility: hidden;">
-        <!-- Marcador Hiro predefinido -->
-        <a-marker preset="hiro" id="hiro-marker">
-            <!-- Esfera de ejemplo (planeta) -->
-            <a-sphere position="0 0.75 0" radius="0.5" color="tomato"
-                      animation="property: rotation; to: 0 360 0; loop: true; dur: 20000; easing: linear;">
-            </a-sphere>
-            <a-text value="¡Funciona!" position="0 1.5 0" align="center" color="white" scale="1.5 1.5 1.5"></a-text>
-        </a-marker>
-        <!-- Cámara -->
-        <a-entity camera></a-entity>
-    </a-scene>
+  <!-- Pantalla de carga inicial -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Iniciando cámara…</p>
+  </div>
 
-    <script>
-        const btn = document.getElementById('start-btn');
-        const scene = document.getElementById('ar-scene');
+  <!-- UI superpuesto -->
+  <div id="ui">
+    <div id="status">📷 Apuntá la cámara al marcador Hiro</div>
+    <div id="hint">Necesitás el marcador impreso o en otra pantalla</div>
+  </div>
 
-        btn.addEventListener('click', () => {
-            // Mostrar la escena y solicitar acceso a la cámara
-            scene.style.visibility = 'visible';
-            btn.style.display = 'none';
+  <!--
+    a-scene con AR.js:
+    - embedded: la escena vive dentro del DOM (no fullscreen nativo)
+    - arjs: configura la fuente (webcam) y el modo de detección
+    - vr-mode-ui: desactiva el botón de VR (no lo necesitamos)
+  -->
+  <a-scene
+    embedded
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+    renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true;"
+    vr-mode-ui="enabled: false"
+    loading-screen="enabled: false"
+  >
 
-            // En algunos dispositivos es necesario forzar la inicialización de AR.js
-            if (scene.components['arjs']) {
-                scene.components['arjs'].arToolkitSource.init(() => {
-                    console.log('Cámara lista');
-                });
-            }
-        });
+    <a-marker preset="hiro">
 
-        // Si el marcador se detecta, opcionalmente ocultar el botón
-        const marker = document.getElementById('hiro-marker');
-        marker.addEventListener('markerFound', () => {
-            console.log('¡Marcador encontrado!');
-        });
-        marker.addEventListener('markerLost', () => {
-            console.log('Marcador perdido');
-        });
-    </script>
+      <!-- ─── Plataforma base ─── -->
+      <a-cylinder
+        position="0 0.015 0"
+        radius="0.75"
+        height="0.03"
+        color="#05050f"
+        opacity="0.9"
+      ></a-cylinder>
+
+      <!-- Aro de la plataforma que gira -->
+      <a-torus
+        position="0 0.03 0"
+        radius="0.75"
+        radius-tubular="0.012"
+        rotation="90 0 0"
+        color="#00d4ff"
+        opacity="0.55"
+        animation="property: rotation; from: 90 0 0; to: 90 360 0; loop: true; dur: 7000; easing: linear"
+      ></a-torus>
+
+      <!-- ─── Cristal central (icosaedro) ─── -->
+      <!--
+        Rotación continua en Y manteniendo inclinación en X.
+        Flota suavemente arriba y abajo con animation__float.
+      -->
+      <a-icosahedron
+        position="0 0.65 0"
+        rotation="20 0 0"
+        radius="0.33"
+        color="#00d4ff"
+        opacity="0.88"
+        animation__rot="property: rotation; from: 20 0 0; to: 20 360 0; loop: true; dur: 5000; easing: linear"
+        animation__float="property: position; from: 0 0.56 0; to: 0 0.74 0; loop: true; dur: 2200; easing: easeInOutSine; dir: alternate"
+      ></a-icosahedron>
+
+      <!-- ─── Anillos orbitales ─── -->
+
+      <!-- Anillo 1 — horizontal, rojo/coral -->
+      <a-torus
+        position="0 0.65 0"
+        radius="0.63"
+        radius-tubular="0.016"
+        color="#ff6b6b"
+        opacity="0.72"
+        animation="property: rotation; from: 0 0 0; to: 0 360 0; loop: true; dur: 3800; easing: linear"
+      ></a-torus>
+
+      <!-- Anillo 2 — inclinado 65°, teal -->
+      <a-torus
+        position="0 0.65 0"
+        radius="0.63"
+        radius-tubular="0.016"
+        color="#4ecdc4"
+        opacity="0.72"
+        rotation="65 0 0"
+        animation="property: rotation; from: 65 0 0; to: 65 360 0; loop: true; dur: 5200; easing: linear"
+      ></a-torus>
+
+      <!-- Anillo 3 — inclinado 45° en Z, amarillo -->
+      <a-torus
+        position="0 0.65 0"
+        radius="0.63"
+        radius-tubular="0.012"
+        color="#ffd93d"
+        opacity="0.55"
+        rotation="45 90 0"
+        animation="property: rotation; from: 45 90 0; to: 45 450 0; loop: true; dur: 6000; easing: linear"
+      ></a-torus>
+
+      <!-- ─── Esferas orbitales ─── -->
+
+      <!-- Esfera roja (sigue anillo 1) -->
+      <a-entity
+        position="0 0.65 0"
+        animation="property: rotation; from: 0 0 0; to: 0 360 0; loop: true; dur: 3800; easing: linear"
+      >
+        <a-sphere position="0.63 0 0" radius="0.075" color="#ff6b6b"></a-sphere>
+      </a-entity>
+
+      <!-- Esfera teal (sigue anillo 2, desfasada 180°) -->
+      <a-entity
+        position="0 0.65 0"
+        rotation="65 180 0"
+        animation="property: rotation; from: 65 180 0; to: 65 540 0; loop: true; dur: 5200; easing: linear"
+      >
+        <a-sphere position="0.63 0 0" radius="0.065" color="#4ecdc4"></a-sphere>
+      </a-entity>
+
+      <!-- Esfera amarilla pequeña (sigue anillo 3) -->
+      <a-entity
+        position="0 0.65 0"
+        rotation="45 90 0"
+        animation="property: rotation; from: 45 90 0; to: 45 450 0; loop: true; dur: 6000; easing: linear"
+      >
+        <a-sphere position="0.63 0 0" radius="0.05" color="#ffd93d"></a-sphere>
+      </a-entity>
+
+      <!-- ─── Texto flotante ─── -->
+      <a-text
+        value="HIRO AR"
+        position="0 1.38 0"
+        align="center"
+        color="#00d4ff"
+        scale="0.5 0.5 0.5"
+        animation__float="property: position; from: 0 1.33 0; to: 0 1.43 0; loop: true; dur: 2200; easing: easeInOutSine; dir: alternate"
+      ></a-text>
+
+    </a-marker>
+
+    <!-- Cámara de AR.js -->
+    <a-entity camera></a-entity>
+
+  </a-scene>
+
+  <script>
+    const marker   = document.querySelector('a-marker');
+    const status   = document.getElementById('status');
+    const hint     = document.getElementById('hint');
+    const loading  = document.getElementById('loading');
+
+    // Ocultar pantalla de carga cuando la escena esté lista
+    const scene = document.querySelector('a-scene');
+    scene.addEventListener('loaded', () => {
+      setTimeout(() => loading.classList.add('hidden'), 800);
+    });
+
+    // Feedback cuando el marcador es encontrado / perdido
+    marker.addEventListener('markerFound', () => {
+      status.textContent = '✨ ¡Marcador detectado!';
+      status.classList.add('found');
+      hint.textContent = 'Mové el teléfono para ver el objeto en 3D';
+    });
+
+    marker.addEventListener('markerLost', () => {
+      status.textContent = '📷 Apuntá la cámara al marcador Hiro';
+      status.classList.remove('found');
+      hint.textContent = 'Necesitás el marcador impreso o en otra pantalla';
+    });
+  </script>
+
 </body>
 </html>
