@@ -1,96 +1,23 @@
-<!doctype html>
-<html lang="es">
+<!DOCTYPE html>
+<html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <title>AR con marcador personalizado</title>
-    
-    <!-- A-Frame 1.4.0 estable -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Test básico AR.js</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <!-- AR.js 3.4.5 -->
     <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
-
-    <script>
-        AFRAME.registerComponent('videohandler', {
-            init: function () {
-                var marker = this.el;
-                this.video = document.querySelector("#vid");
-
-                if (!this.video) {
-                    console.error("No se encontró el elemento de video con id='vid'");
-                    return;
-                }
-
-                marker.addEventListener('markerFound', function () {
-                    var playPromise = this.video.play();
-                    if (playPromise !== undefined) {
-                        playPromise.catch(function(error) {
-                            console.warn('Reproducción bloqueada:', error);
-                        });
-                    }
-                }.bind(this));
-
-                marker.addEventListener('markerLost', function () {
-                    this.video.pause();
-                }.bind(this));
-            }
-        });
-    </script>
-
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-        }
-        .ar-help {
-            position: absolute;
-            bottom: 20px;
-            width: 100%;
-            text-align: center;
-            color: white;
-            font-family: sans-serif;
-            pointer-events: none;
-            z-index: 10;
-        }
-    </style>
+    <style>body { margin: 0; overflow: hidden; }</style>
 </head>
 <body>
     <a-scene
         vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; debugUIEnabled: true; markersAreaEnabled: true;"
+        arjs="sourceType: webcam; debugUIEnabled: true;"
         renderer="antialias: true; alpha: true"
     >
-        <a-assets>
-            <video
-                id="vid"
-                src="assets/asset.mp4"
-                preload="auto"
-                loop
-                muted
-                playsinline
-                webkit-playsinline
-                crossorigin="anonymous"
-            ></video>
-        </a-assets>
-
-        <a-marker
-            type="pattern"
-            preset="custom"
-            url="assets/marker.patt"
-            videohandler
-        >
-            <a-video
-                src="#vid"
-                width="1"
-                height="0.5625"
-                position="0 0 0"
-                rotation="-90 0 0"
-            ></a-video>
+        <a-marker preset="hiro">
+            <a-box position="0 0.5 0" material="color: red;"></a-box>
         </a-marker>
-
         <a-entity camera></a-entity>
     </a-scene>
-
-    <div class="ar-help">🖼️ Apunta la cámara al marcador para ver el video</div>
 </body>
 </html>
