@@ -3,20 +3,22 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Test básico AR.js</title>
+    <title>Test MindAR Hiro</title>
+    <!-- A-Frame y MindAR -->
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <style>body { margin: 0; overflow: hidden; }</style>
 </head>
 <body>
     <a-scene
+        mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/examples/image-tracking/assets/targets.mind;"
         vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; debugUIEnabled: true;"
-        renderer="antialias: true; alpha: true"
     >
-        <a-marker preset="hiro">
+        <!-- Cubo rojo sobre el marcador Hiro (targetIndex 0) -->
+        <a-entity mindar-image-target="targetIndex: 0">
             <a-box position="0 0.5 0" material="color: red;"></a-box>
-        </a-marker>
+        </a-entity>
         <a-entity camera></a-entity>
     </a-scene>
 </body>
