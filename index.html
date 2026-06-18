@@ -7,7 +7,8 @@
 
   <!-- A-Frame + AR.js para AR basado en marcadores -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
+  <!-- CDN oficial recomendado por AR.js (raw.githack.com) -->
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -114,13 +115,12 @@
 
   <!--
     a-scene con AR.js:
-    - embedded: la escena vive dentro del DOM (no fullscreen nativo)
-    - arjs: configura la fuente (webcam) y el modo de detección
+    - SIN embedded: A-Frame gestiona el viewport completo (correcto para AR móvil)
+    - arjs: detección mono (pattern), sin parámetros de matrix
     - vr-mode-ui: desactiva el botón de VR (no lo necesitamos)
   -->
   <a-scene
-    embedded
-    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono;"
     renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true;"
     vr-mode-ui="enabled: false"
     loading-screen="enabled: false"
@@ -149,10 +149,6 @@
       ></a-torus>
 
       <!-- ─── Cristal central (icosaedro) ─── -->
-      <!--
-        Rotación continua en Y manteniendo inclinación en X.
-        Flota suavemente arriba y abajo con animation__float.
-      -->
       <a-icosahedron
         position="0 0.65 0"
         rotation="20 0 0"
