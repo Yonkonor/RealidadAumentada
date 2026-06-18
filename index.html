@@ -3,11 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>AR Marcador Hiro</title>
+  <title>AR Video en Marcador Hiro</title>
 
-  <!-- A-Frame + AR.js para AR basado en marcadores -->
+  <!-- A-Frame + AR.js -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <!-- CDN oficial recomendado por AR.js (raw.githack.com) -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
   <style>
@@ -19,13 +18,11 @@
       font-family: system-ui, -apple-system, sans-serif;
     }
 
-    /* La escena de A-Frame ocupa toda la pantalla */
     a-scene {
       width: 100vw;
       height: 100vh;
     }
 
-    /* Panel de instrucciones inferior */
     #ui {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -63,7 +60,6 @@
       text-align: center;
     }
 
-    /* Indicador de carga */
     #loading {
       position: fixed;
       inset: 0;
@@ -101,24 +97,16 @@
 </head>
 <body>
 
-  <!-- Pantalla de carga inicial -->
   <div id="loading">
     <div class="spinner"></div>
     <p>Iniciando cámara…</p>
   </div>
 
-  <!-- UI superpuesto -->
   <div id="ui">
     <div id="status">📷 Apuntá la cámara al marcador Hiro</div>
     <div id="hint">Necesitás el marcador impreso o en otra pantalla</div>
   </div>
 
-  <!--
-    a-scene con AR.js:
-    - SIN embedded: A-Frame gestiona el viewport completo (correcto para AR móvil)
-    - arjs: detección mono (pattern), sin parámetros de matrix
-    - vr-mode-ui: desactiva el botón de VR (no lo necesitamos)
-  -->
   <a-scene
     arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono;"
     renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true;"
@@ -128,112 +116,25 @@
 
     <a-marker preset="hiro">
 
-      <!-- ─── Plataforma base ─── -->
-      <a-cylinder
-        position="0 0.015 0"
-        radius="0.75"
-        height="0.03"
-        color="#05050f"
-        opacity="0.9"
-      ></a-cylinder>
-
-      <!-- Aro de la plataforma que gira -->
-      <a-torus
-        position="0 0.03 0"
-        radius="0.75"
-        radius-tubular="0.012"
-        rotation="90 0 0"
-        color="#00d4ff"
-        opacity="0.55"
-        animation="property: rotation; from: 90 0 0; to: 90 360 0; loop: true; dur: 7000; easing: linear"
-      ></a-torus>
-
-      <!-- ─── Cristal central (icosaedro) ─── -->
-      <a-icosahedron
-        position="0 0.65 0"
-        rotation="20 0 0"
-        radius="0.33"
-        color="#00d4ff"
-        opacity="0.88"
-        animation__rot="property: rotation; from: 20 0 0; to: 20 360 0; loop: true; dur: 5000; easing: linear"
-        animation__float="property: position; from: 0 0.56 0; to: 0 0.74 0; loop: true; dur: 2200; easing: easeInOutSine; dir: alternate"
-      ></a-icosahedron>
-
-      <!-- ─── Anillos orbitales ─── -->
-
-      <!-- Anillo 1 — horizontal, rojo/coral -->
-      <a-torus
-        position="0 0.65 0"
-        radius="0.63"
-        radius-tubular="0.016"
-        color="#ff6b6b"
-        opacity="0.72"
-        animation="property: rotation; from: 0 0 0; to: 0 360 0; loop: true; dur: 3800; easing: linear"
-      ></a-torus>
-
-      <!-- Anillo 2 — inclinado 65°, teal -->
-      <a-torus
-        position="0 0.65 0"
-        radius="0.63"
-        radius-tubular="0.016"
-        color="#4ecdc4"
-        opacity="0.72"
-        rotation="65 0 0"
-        animation="property: rotation; from: 65 0 0; to: 65 360 0; loop: true; dur: 5200; easing: linear"
-      ></a-torus>
-
-      <!-- Anillo 3 — inclinado 45° en Z, amarillo -->
-      <a-torus
-        position="0 0.65 0"
-        radius="0.63"
-        radius-tubular="0.012"
-        color="#ffd93d"
-        opacity="0.55"
-        rotation="45 90 0"
-        animation="property: rotation; from: 45 90 0; to: 45 450 0; loop: true; dur: 6000; easing: linear"
-      ></a-torus>
-
-      <!-- ─── Esferas orbitales ─── -->
-
-      <!-- Esfera roja (sigue anillo 1) -->
-      <a-entity
-        position="0 0.65 0"
-        animation="property: rotation; from: 0 0 0; to: 0 360 0; loop: true; dur: 3800; easing: linear"
-      >
-        <a-sphere position="0.63 0 0" radius="0.075" color="#ff6b6b"></a-sphere>
-      </a-entity>
-
-      <!-- Esfera teal (sigue anillo 2, desfasada 180°) -->
-      <a-entity
-        position="0 0.65 0"
-        rotation="65 180 0"
-        animation="property: rotation; from: 65 180 0; to: 65 540 0; loop: true; dur: 5200; easing: linear"
-      >
-        <a-sphere position="0.63 0 0" radius="0.065" color="#4ecdc4"></a-sphere>
-      </a-entity>
-
-      <!-- Esfera amarilla pequeña (sigue anillo 3) -->
-      <a-entity
-        position="0 0.65 0"
-        rotation="45 90 0"
-        animation="property: rotation; from: 45 90 0; to: 45 450 0; loop: true; dur: 6000; easing: linear"
-      >
-        <a-sphere position="0.63 0 0" radius="0.05" color="#ffd93d"></a-sphere>
-      </a-entity>
-
-      <!-- ─── Texto flotante ─── -->
-      <a-text
-        value="HIRO AR"
-        position="0 1.38 0"
-        align="center"
-        color="#00d4ff"
-        scale="0.5 0.5 0.5"
-        animation__float="property: position; from: 0 1.33 0; to: 0 1.43 0; loop: true; dur: 2200; easing: easeInOutSine; dir: alternate"
-      ></a-text>
+      <!--
+        Pantalla de video vertical (16:9)
+        Cambiá la ruta "src" a la ubicación real de tu MP4
+        ej: src="./videos/mi-video.mp4"
+      -->
+      <a-video
+        src="./video.mp4"
+        width="1.6"
+        height="0.9"
+        position="0 0.8 0"
+        rotation="-90 0 0"
+        muted
+        autoplay
+        loop
+        playsinline
+      ></a-video>
 
     </a-marker>
 
-    <!-- Cámara de AR.js -->
     <a-entity camera></a-entity>
 
   </a-scene>
@@ -244,17 +145,15 @@
     const hint     = document.getElementById('hint');
     const loading  = document.getElementById('loading');
 
-    // Ocultar pantalla de carga cuando la escena esté lista
     const scene = document.querySelector('a-scene');
     scene.addEventListener('loaded', () => {
       setTimeout(() => loading.classList.add('hidden'), 800);
     });
 
-    // Feedback cuando el marcador es encontrado / perdido
     marker.addEventListener('markerFound', () => {
-      status.textContent = '✨ ¡Marcador detectado!';
+      status.textContent = '✨ ¡Video reproduciéndose!';
       status.classList.add('found');
-      hint.textContent = 'Mové el teléfono para ver el objeto en 3D';
+      hint.textContent = 'Mové el teléfono para verlo en 3D';
     });
 
     marker.addEventListener('markerLost', () => {
