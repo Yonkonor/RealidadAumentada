@@ -23,7 +23,6 @@
       height: 100vh;
     }
 
-    /* UI inferior (no interactiva) */
     #ui {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -95,7 +94,7 @@
       font-size: 14px;
     }
 
-    /* Botón de sonido (interactivo, por fuera del UI no interactivo) */
+    /* Botón de sonido */
     #audio-btn {
       position: fixed;
       top: 24px;
@@ -113,7 +112,7 @@
       font-weight: 600;
       letter-spacing: 0.5px;
       cursor: pointer;
-      display: none; /* oculto por defecto */
+      display: none;
       box-shadow: 0 4px 15px rgba(0,0,0,0.5);
       transition: background 0.3s ease, opacity 0.3s ease;
     }
@@ -122,7 +121,6 @@
       background: rgba(0, 140, 70, 0.9);
     }
 
-    /* Mostrar solo cuando tenga la clase .visible */
     #audio-btn.visible {
       display: block;
     }
@@ -135,7 +133,6 @@
     <p>Iniciando cámara…</p>
   </div>
 
-  <!-- Botón de sonido (fuera del #ui para que sea cliqueable) -->
   <button id="audio-btn">🔊 Activar sonido</button>
 
   <div id="ui">
@@ -150,10 +147,8 @@
     loading-screen="enabled: false"
   >
 
-    <!-- Marcador con suavizado alto -->
     <a-marker preset="hiro" smoothing-factor="0.95">
 
-      <!-- Video: tamaño grande, arranca muteado, se activa con el botón -->
       <a-video
         id="ar-video"
         src="./assets/demo.mp4"
@@ -181,21 +176,34 @@
     const hint      = document.getElementById('hint');
     const loading   = document.getElementById('loading');
     const audioBtn  = document.getElementById('audio-btn');
-    const video     = document.getElementById('ar-video');
+
+    // Referencia al <video> real (se obtiene después de que el material esté listo)
+    let videoElement = null;
 
     const scene = document.querySelector('a-scene');
     scene.addEventListener('loaded', () => {
       setTimeout(() => loading.classList.add('hidden'), 800);
+
+      // Intentamos obtener el <video> real apenas cargue el material
+      const videoEntity = document.getElementById('ar-video');
+      if (videoEntity) {
+        videoEntity.addEventListener('materialvideoloadeddata', () => {
+          // El video interno ya está disponible
+          const material = videoEntity.components.material;
+          if (material && material.material && material.material.map) {
+            videoElement = material.material.map.image;
+          }
+        });
+      }
     });
 
-    // Eventos del marcador
     marker.addEventListener('markerFound', () => {
       status.textContent = '✨ ¡Video reproduciéndose!';
       status.classList.add('found');
       hint.textContent = 'Mové el teléfono para verlo en 3D';
 
-      // Mostrar el botón de sonido solo si el video está muteado
-      if (video && video.muted) {
+      // Mostrar botón si el video sigue muteado
+      if (videoElement && videoElement.muted) {
         audioBtn.classList.add('visible');
       }
     });
@@ -204,28 +212,16 @@
       status.textContent = '📷 Apuntá la cámara al marcador Hiro';
       status.classList.remove('found');
       hint.textContent = 'Necesitás el marcador impreso o en otra pantalla';
-
-      // Ocultar el botón al perder el marcador
       audioBtn.classList.remove('visible');
     });
 
-    // Lógica del botón: activar audio con un toque
     audioBtn.addEventListener('click', () => {
-      if (video) {
-        video.muted = false;
-        video.play().catch(err => console.warn('Error al reproducir con sonido:', err));
+      if (videoElement) {
+        videoElement.muted = false;
+        videoElement.play().catch(err => console.warn('Error al reproducir con sonido:', err));
         audioBtn.classList.remove('visible');
       }
     });
-
-    // Por si el video ya fue desmuteado por otra razón, ocultar botón
-    if (video) {
-      video.addEventListener('volumechange', () => {
-        if (!video.muted) {
-          audioBtn.classList.remove('visible');
-        }
-      });
-    }
   </script>
 
 </body>
