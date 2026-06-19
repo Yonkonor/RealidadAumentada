@@ -23,6 +23,7 @@
       height: 100vh;
     }
 
+    /* UI inferior (no interactiva) */
     #ui {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -93,6 +94,38 @@
       color: rgba(255,255,255,0.6);
       font-size: 14px;
     }
+
+    /* Botón de sonido (interactivo, por fuera del UI no interactivo) */
+    #audio-btn {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      pointer-events: auto;
+      background: rgba(0, 180, 90, 0.9);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      padding: 12px 28px;
+      border-radius: 40px;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      display: none; /* oculto por defecto */
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      transition: background 0.3s ease, opacity 0.3s ease;
+    }
+
+    #audio-btn:active {
+      background: rgba(0, 140, 70, 0.9);
+    }
+
+    /* Mostrar solo cuando tenga la clase .visible */
+    #audio-btn.visible {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -101,6 +134,9 @@
     <div class="spinner"></div>
     <p>Iniciando cámara…</p>
   </div>
+
+  <!-- Botón de sonido (fuera del #ui para que sea cliqueable) -->
+  <button id="audio-btn">🔊 Activar sonido</button>
 
   <div id="ui">
     <div id="status">📷 Apuntá la cámara al marcador Hiro</div>
@@ -117,13 +153,15 @@
     <!-- Marcador con suavizado alto -->
     <a-marker preset="hiro" smoothing-factor="0.95">
 
-      <!-- Video: doble de tamaño, sin "muted" (sonido habilitado) -->
+      <!-- Video: tamaño grande, arranca muteado, se activa con el botón -->
       <a-video
+        id="ar-video"
         src="./assets/demo.mp4"
         width="3.2"
         height="1.8"
         position="0 0.9 0"
         rotation="-90 0 0"
+        muted
         autoplay
         loop
         playsinline
@@ -138,27 +176,56 @@
   </a-scene>
 
   <script>
-    const marker   = document.querySelector('a-marker');
-    const status   = document.getElementById('status');
-    const hint     = document.getElementById('hint');
-    const loading  = document.getElementById('loading');
+    const marker    = document.querySelector('a-marker');
+    const status    = document.getElementById('status');
+    const hint      = document.getElementById('hint');
+    const loading   = document.getElementById('loading');
+    const audioBtn  = document.getElementById('audio-btn');
+    const video     = document.getElementById('ar-video');
 
     const scene = document.querySelector('a-scene');
     scene.addEventListener('loaded', () => {
       setTimeout(() => loading.classList.add('hidden'), 800);
     });
 
+    // Eventos del marcador
     marker.addEventListener('markerFound', () => {
       status.textContent = '✨ ¡Video reproduciéndose!';
       status.classList.add('found');
       hint.textContent = 'Mové el teléfono para verlo en 3D';
+
+      // Mostrar el botón de sonido solo si el video está muteado
+      if (video && video.muted) {
+        audioBtn.classList.add('visible');
+      }
     });
 
     marker.addEventListener('markerLost', () => {
       status.textContent = '📷 Apuntá la cámara al marcador Hiro';
       status.classList.remove('found');
       hint.textContent = 'Necesitás el marcador impreso o en otra pantalla';
+
+      // Ocultar el botón al perder el marcador
+      audioBtn.classList.remove('visible');
     });
+
+    // Lógica del botón: activar audio con un toque
+    audioBtn.addEventListener('click', () => {
+      if (video) {
+        video.muted = false;
+        video.play().catch(err => console.warn('Error al reproducir con sonido:', err));
+        audioBtn.classList.remove('visible');
+      }
+    });
+
+    // Por si el video ya fue desmuteado por otra razón, ocultar botón
+    if (video) {
+      video.addEventListener('volumechange', () => {
+        if (!video.muted) {
+          audioBtn.classList.remove('visible');
+        }
+      });
+    }
   </script>
 
 </body>
