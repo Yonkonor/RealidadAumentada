@@ -177,24 +177,45 @@
     const loading   = document.getElementById('loading');
     const audioBtn  = document.getElementById('audio-btn');
 
-    // Referencia al <video> real (se obtiene después de que el material esté listo)
-    let videoElement = null;
+    // Función que busca el elemento <video> real
+    function getVideoElement() {
+      const entity = document.getElementById('ar-video');
+      if (!entity) return null;
+
+      // Intento 1: a través del material
+      try {
+        const material = entity.components.material;
+        if (material && material.material && material.material.map) {
+          const img = material.material.map.image;
+          if (img && img.tagName === 'VIDEO') return img;
+        }
+      } catch (e) {}
+
+      // Intento 2: como hijo directo (algunas versiones lo agregan)
+      const videoChild = entity.querySelector('video');
+      if (videoChild) return videoChild;
+
+      return null;
+    }
+
+    // Función para activar el sonido, con reintentos si el video no está listo
+    function activarSonido(intentos = 0) {
+      const video = getVideoElement();
+      if (video) {
+        video.muted = false;
+        video.play().catch(err => console.warn('Error al reproducir:', err));
+        audioBtn.classList.remove('visible');
+      } else if (intentos < 5) {
+        // Reintenta en 200ms
+        setTimeout(() => activarSonido(intentos + 1), 200);
+      } else {
+        alert('No se pudo activar el sonido. Tocá la pantalla y volvé a intentar.');
+      }
+    }
 
     const scene = document.querySelector('a-scene');
     scene.addEventListener('loaded', () => {
       setTimeout(() => loading.classList.add('hidden'), 800);
-
-      // Intentamos obtener el <video> real apenas cargue el material
-      const videoEntity = document.getElementById('ar-video');
-      if (videoEntity) {
-        videoEntity.addEventListener('materialvideoloadeddata', () => {
-          // El video interno ya está disponible
-          const material = videoEntity.components.material;
-          if (material && material.material && material.material.map) {
-            videoElement = material.material.map.image;
-          }
-        });
-      }
     });
 
     marker.addEventListener('markerFound', () => {
@@ -202,10 +223,8 @@
       status.classList.add('found');
       hint.textContent = 'Mové el teléfono para verlo en 3D';
 
-      // Mostrar botón si el video sigue muteado
-      if (videoElement && videoElement.muted) {
-        audioBtn.classList.add('visible');
-      }
+      // Mostrar el botón SIEMPRE que se detecte el marcador
+      audioBtn.classList.add('visible');
     });
 
     marker.addEventListener('markerLost', () => {
@@ -215,13 +234,7 @@
       audioBtn.classList.remove('visible');
     });
 
-    audioBtn.addEventListener('click', () => {
-      if (videoElement) {
-        videoElement.muted = false;
-        videoElement.play().catch(err => console.warn('Error al reproducir con sonido:', err));
-        audioBtn.classList.remove('visible');
-      }
-    });
+    audioBtn.addEventListener('click', activarSonido);
   </script>
 
 </body>
