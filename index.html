@@ -147,17 +147,18 @@
     loading-screen="enabled: false"
   >
 
-    <!-- Marcador personalizado: video.patt (misma carpeta que el video) -->
+    <!-- Marcador personalizado: video.patt -->
     <a-marker type="pattern" url="./assets/video.patt" smoothing-factor="0.95">
 
-      <!-- Video 4 veces más grande: 3.2 * 4 = 12.8 | 1.8 * 4 = 7.2 -->
+      <!-- Video reducido al 60% del tamaño anterior: 7.68 x 4.32 -->
+      <!-- Rotación 0 0 0 → paralelo a la pared, sin oscilación vertical -->
       <a-video
         id="ar-video"
         src="./assets/demo.mp4"
-        width="12.8"
-        height="7.2"
-        position="0 0.9 0"
-        rotation="-90 0 0"
+        width="7.68"
+        height="4.32"
+        position="0 0 0"
+        rotation="0 0 0"
         muted
         autoplay
         loop
