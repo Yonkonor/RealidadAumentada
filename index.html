@@ -136,7 +136,7 @@
   <button id="audio-btn">🔊 Activar sonido</button>
 
   <div id="ui">
-    <div id="status">📷 Apuntá la cámara al marcador Hiro</div>
+    <div id="status">📷 Apuntá la cámara al marcador personalizado</div>
     <div id="hint">Necesitás el marcador impreso o en otra pantalla</div>
   </div>
 
@@ -147,7 +147,8 @@
     loading-screen="enabled: false"
   >
 
-    <a-marker preset="hiro" smoothing-factor="0.95">
+    <!-- Marcador personalizado -->
+    <a-marker type="pattern" url="./assets/marcador.patt" smoothing-factor="0.95">
 
       <a-video
         id="ar-video"
@@ -228,7 +229,7 @@
     });
 
     marker.addEventListener('markerLost', () => {
-      status.textContent = '📷 Apuntá la cámara al marcador Hiro';
+      status.textContent = '📷 Apuntá la cámara al marcador personalizado';
       status.classList.remove('found');
       hint.textContent = 'Necesitás el marcador impreso o en otra pantalla';
       audioBtn.classList.remove('visible');
