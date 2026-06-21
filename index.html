@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>AR Video Grande con Sonido</title>
+  <title>AR Video Grande con Sonido - Dos Marcadores</title>
 
   <!-- A-Frame + AR.js -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
@@ -136,11 +136,10 @@
   <button id="audio-btn">🔊 Activar sonido</button>
 
   <div id="ui">
-    <div id="status">📷 Apuntá la cámara al marcador personalizado</div>
+    <div id="status">📷 Apuntá la cámara al marcador</div>
     <div id="hint">Necesitás el marcador impreso o en otra pantalla</div>
   </div>
 
-  <!-- Escena con detectionMode: mono y sin debug -->
   <a-scene
     arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono;"
     renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true; precision: mediump;"
@@ -148,10 +147,13 @@
     loading-screen="enabled: false"
   >
 
-    <!-- Marcador con smoothing-factor 0.5 -->
-    <a-marker type="pattern" url="./assets/video.patt" smoothing-factor="0.5">
-
-      <!-- Video centrado (posición 0 0 0) y tamaño reducido a la mitad -->
+    <!-- Primer marcador (video original) -->
+    <a-marker 
+      id="marker1"
+      type="pattern" 
+      url="./assets/video.patt" 
+      smoothing-factor="0.5"
+    >
       <a-video
         id="ar-video"
         src="./assets/demo.mp4"
@@ -166,7 +168,29 @@
         webkit-playsinline
         preload="auto"
       ></a-video>
+    </a-marker>
 
+    <!-- Nuevo marcador (hiro.patt + demo2.mp4) -->
+    <a-marker 
+      id="marker2"
+      type="pattern" 
+      url="./assets/hiro.patt" 
+      smoothing-factor="0.5"
+    >
+      <a-video
+        id="ar-video2"
+        src="./assets/demo2.mp4"
+        width="6.4"
+        height="3.6"
+        position="0 0 0"
+        rotation="-90 0 0"
+        muted
+        autoplay
+        loop
+        playsinline
+        webkit-playsinline
+        preload="auto"
+      ></a-video>
     </a-marker>
 
     <a-entity camera></a-entity>
@@ -174,18 +198,30 @@
   </a-scene>
 
   <script>
-    const marker    = document.querySelector('a-marker');
-    const status    = document.getElementById('status');
-    const hint      = document.getElementById('hint');
-    const loading   = document.getElementById('loading');
-    const audioBtn  = document.getElementById('audio-btn');
+    // Elementos del DOM
+    const marker1    = document.getElementById('marker1');
+    const marker2    = document.getElementById('marker2');
+    const status     = document.getElementById('status');
+    const hint       = document.getElementById('hint');
+    const loading    = document.getElementById('loading');
+    const audioBtn   = document.getElementById('audio-btn');
 
-    // Función que busca el elemento <video> real
-    function getVideoElement() {
-      const entity = document.getElementById('ar-video');
+    // Mapa para relacionar cada marker con el id de su video
+    const markerToVideoId = new Map();
+    markerToVideoId.set(marker1, 'ar-video');
+    markerToVideoId.set(marker2, 'ar-video2');
+
+    // Control de marcadores actualmente visibles
+    const foundMarkers = new Set();
+    let activeVideoElement = null;   // <video> real que se activará
+
+    /**
+     * Dado el id de una entidad <a-video>, devuelve el elemento <video> real
+     */
+    function getVideoElement(entityId) {
+      const entity = document.getElementById(entityId);
       if (!entity) return null;
 
-      // Intento 1: a través del material
       try {
         const material = entity.components.material;
         if (material && material.material && material.material.map) {
@@ -194,48 +230,92 @@
         }
       } catch (e) {}
 
-      // Intento 2: como hijo directo (algunas versiones lo agregan)
       const videoChild = entity.querySelector('video');
       if (videoChild) return videoChild;
 
       return null;
     }
 
-    // Función para activar el sonido, con reintentos si el video no está listo
-    function activarSonido(intentos = 0) {
-      const video = getVideoElement();
-      if (video) {
-        video.muted = false;
-        video.play().catch(err => console.warn('Error al reproducir:', err));
-        audioBtn.classList.remove('visible');
-      } else if (intentos < 5) {
-        // Reintenta en 200ms
-        setTimeout(() => activarSonido(intentos + 1), 200);
+    /**
+     * Activa el sonido de un elemento <video>
+     */
+    function activarSonido(videoEl) {
+      if (!videoEl) return;
+      videoEl.muted = false;
+      videoEl.play().catch(err => console.warn('Error al reproducir:', err));
+      audioBtn.classList.remove('visible');
+    }
+
+    // Interfaz de usuario
+    function updateStatusFound() {
+      status.textContent = '✨ ¡Video reproduciéndose!';
+      status.classList.add('found');
+      hint.textContent = 'Mové el teléfono para verlo en 3D';
+    }
+
+    function updateStatusLost() {
+      status.textContent = '📷 Apuntá la cámara al marcador';
+      status.classList.remove('found');
+      hint.textContent = 'Necesitás el marcador impreso o en otra pantalla';
+    }
+
+    function showAudioBtn() {
+      audioBtn.classList.add('visible');
+    }
+
+    function hideAudioBtn() {
+      audioBtn.classList.remove('visible');
+    }
+
+    // --- Eventos de los marcadores ---
+
+    // Cuando se encuentra cualquier marcador
+    function onMarkerFound(marker) {
+      const videoId = markerToVideoId.get(marker);
+      foundMarkers.add(marker);
+
+      // El video activo será el del último marcador encontrado
+      activeVideoElement = getVideoElement(videoId);
+      showAudioBtn();
+      updateStatusFound();
+    }
+
+    // Cuando se pierde cualquier marcador
+    function onMarkerLost(marker) {
+      foundMarkers.delete(marker);
+
+      if (foundMarkers.size === 0) {
+        // No queda ningún marcador visible
+        hideAudioBtn();
+        activeVideoElement = null;
+        updateStatusLost();
       } else {
-        alert('No se pudo activar el sonido. Tocá la pantalla y volvé a intentar.');
+        // Todavía hay algún marcador: tomamos otro como activo
+        const someMarker = foundMarkers.values().next().value;
+        const videoId = markerToVideoId.get(someMarker);
+        activeVideoElement = getVideoElement(videoId);
+        // El botón sigue visible (ya estaba), y el estado se mantiene como found
       }
     }
 
+    marker1.addEventListener('markerFound', () => onMarkerFound(marker1));
+    marker1.addEventListener('markerLost',  () => onMarkerLost(marker1));
+
+    marker2.addEventListener('markerFound', () => onMarkerFound(marker2));
+    marker2.addEventListener('markerLost',  () => onMarkerLost(marker2));
+
+    // Botón de sonido: activa el sonido del video activo actual
+    audioBtn.addEventListener('click', () => {
+      if (activeVideoElement) {
+        activarSonido(activeVideoElement);
+      }
+    });
+
+    // Ocultar pantalla de carga cuando la escena esté lista
     const scene = document.querySelector('a-scene');
     scene.addEventListener('loaded', () => {
       setTimeout(() => loading.classList.add('hidden'), 800);
     });
-
-    marker.addEventListener('markerFound', () => {
-      status.textContent = '✨ ¡Video reproduciéndose!';
-      status.classList.add('found');
-      hint.textContent = 'Mové el teléfono para verlo en 3D';
-      audioBtn.classList.add('visible');
-    });
-
-    marker.addEventListener('markerLost', () => {
-      status.textContent = '📷 Apuntá la cámara al marcador personalizado';
-      status.classList.remove('found');
-      hint.textContent = 'Necesitás el marcador impreso o en otra pantalla';
-      audioBtn.classList.remove('visible');
-    });
-
-    audioBtn.addEventListener('click', activarSonido);
   </script>
 
 </body>
