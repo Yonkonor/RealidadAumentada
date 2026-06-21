@@ -140,25 +140,25 @@
     <div id="hint">Necesitás el marcador impreso o en otra pantalla</div>
   </div>
 
+  <!-- Escena con detectionMode: mono y sin debug -->
   <a-scene
-    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix;"
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono;"
     renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true; precision: mediump;"
     vr-mode-ui="enabled: false"
     loading-screen="enabled: false"
   >
 
-    <!-- Marcador personalizado: video.patt -->
-    <a-marker type="pattern" url="./assets/video.patt" smoothing-factor="0.95">
+    <!-- Marcador con smoothing-factor 0.5 -->
+    <a-marker type="pattern" url="./assets/video.patt" smoothing-factor="0.5">
 
-      <!-- Video reducido al 60% del tamaño anterior: 7.68 x 4.32 -->
-      <!-- Rotación 0 0 0 → paralelo a la pared, sin oscilación vertical -->
+      <!-- Video centrado (posición 0 0 0) y tamaño reducido a la mitad -->
       <a-video
         id="ar-video"
         src="./assets/demo.mp4"
-        width="7.68"
-        height="4.32"
+        width="6.4"
+        height="3.6"
         position="0 0 0"
-        rotation="0 0 0"
+        rotation="-90 0 0"
         muted
         autoplay
         loop
@@ -225,8 +225,6 @@
       status.textContent = '✨ ¡Video reproduciéndose!';
       status.classList.add('found');
       hint.textContent = 'Mové el teléfono para verlo en 3D';
-
-      // Mostrar el botón SIEMPRE que se detecte el marcador
       audioBtn.classList.add('visible');
     });
 
