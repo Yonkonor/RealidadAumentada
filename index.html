@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>AR Video Grande con Sonido - Dos Marcadores</title>
+  <title>AR Video Grande con Sonido - Tres Marcadores</title>
 
   <!-- A-Frame + AR.js -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
@@ -170,7 +170,7 @@
       ></a-video>
     </a-marker>
 
-    <!-- Nuevo marcador (hiro.patt + demo2.mp4) -->
+    <!-- Segundo marcador (hiro.patt + demo2.mp4) -->
     <a-marker 
       id="marker2"
       type="pattern" 
@@ -193,6 +193,29 @@
       ></a-video>
     </a-marker>
 
+    <!-- Tercer marcador (videounilib.patt + demo3.mp4) -->
+    <a-marker 
+      id="marker3"
+      type="pattern" 
+      url="./assets/videounilib.patt" 
+      smoothing-factor="0.5"
+    >
+      <a-video
+        id="ar-video3"
+        src="./assets/demo3.mp4"
+        width="6.4"
+        height="3.6"
+        position="0 0 0"
+        rotation="-90 0 0"
+        muted
+        autoplay
+        loop
+        playsinline
+        webkit-playsinline
+        preload="auto"
+      ></a-video>
+    </a-marker>
+
     <a-entity camera></a-entity>
 
   </a-scene>
@@ -201,6 +224,7 @@
     // Elementos del DOM
     const marker1    = document.getElementById('marker1');
     const marker2    = document.getElementById('marker2');
+    const marker3    = document.getElementById('marker3');
     const status     = document.getElementById('status');
     const hint       = document.getElementById('hint');
     const loading    = document.getElementById('loading');
@@ -210,6 +234,7 @@
     const markerToVideoId = new Map();
     markerToVideoId.set(marker1, 'ar-video');
     markerToVideoId.set(marker2, 'ar-video2');
+    markerToVideoId.set(marker3, 'ar-video3');
 
     // Control de marcadores actualmente visibles
     const foundMarkers = new Set();
@@ -303,6 +328,9 @@
 
     marker2.addEventListener('markerFound', () => onMarkerFound(marker2));
     marker2.addEventListener('markerLost',  () => onMarkerLost(marker2));
+
+    marker3.addEventListener('markerFound', () => onMarkerFound(marker3));
+    marker3.addEventListener('markerLost',  () => onMarkerLost(marker3));
 
     // Botón de sonido: activa el sonido del video activo actual
     audioBtn.addEventListener('click', () => {
