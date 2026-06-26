@@ -1,292 +1,38 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>AR Video Grande con Sonido</title>
+<!-- Marcador 1: video.patt / demo.mp4 -->
+<a-marker type="pattern" url="./assets/video.patt" smoothing-factor="0.5">
+  <a-video
+    id="ar-video"
+    src="./assets/demo.mp4"
+    width="12.8"
+    height="7.2"
+    position="0 0 0"
+    rotation="0 0 0"
+    muted autoplay loop playsinline webkit-playsinline preload="auto"
+  ></a-video>
+</a-marker>
 
-  <!-- A-Frame + AR.js -->
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+<!-- Marcador 2: hiro.patt / demo2.mp4 -->
+<a-marker type="pattern" url="./assets/hiro.patt" smoothing-factor="0.5">
+  <a-video
+    id="ar-video2"
+    src="./assets/demo2.mp4"
+    width="12.8"
+    height="7.2"
+    position="0 0 0"
+    rotation="0 0 0"
+    muted autoplay loop playsinline webkit-playsinline preload="auto"
+  ></a-video>
+</a-marker>
 
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      overflow: hidden;
-      background: #000;
-      font-family: system-ui, -apple-system, sans-serif;
-    }
-
-    a-scene {
-      width: 100vw;
-      height: 100vh;
-    }
-
-    #ui {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      padding: 20px 16px 28px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      pointer-events: none;
-      z-index: 999;
-    }
-
-    #status {
-      background: rgba(10, 10, 30, 0.75);
-      backdrop-filter: blur(8px);
-      color: #fff;
-      padding: 11px 22px;
-      border-radius: 24px;
-      font-size: 15px;
-      font-weight: 500;
-      text-align: center;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      transition: background 0.4s ease, border-color 0.4s ease;
-      letter-spacing: 0.01em;
-    }
-
-    #status.found {
-      background: rgba(0, 180, 90, 0.8);
-      border-color: rgba(0, 255, 130, 0.35);
-    }
-
-    #hint {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.45);
-      text-align: center;
-    }
-
-    #loading {
-      position: fixed;
-      inset: 0;
-      background: #000;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      z-index: 9999;
-      transition: opacity 0.6s ease;
-    }
-
-    #loading.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid rgba(0, 212, 255, 0.2);
-      border-top-color: #00d4ff;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    #loading p {
-      color: rgba(255,255,255,0.6);
-      font-size: 14px;
-    }
-
-    /* Botón de sonido */
-    #audio-btn {
-      position: fixed;
-      top: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1000;
-      pointer-events: auto;
-      background: rgba(0, 180, 90, 0.9);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255,255,255,0.3);
-      color: white;
-      padding: 12px 28px;
-      border-radius: 40px;
-      font-size: 16px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      display: none;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-      transition: background 0.3s ease, opacity 0.3s ease;
-    }
-
-    #audio-btn:active {
-      background: rgba(0, 140, 70, 0.9);
-    }
-
-    #audio-btn.visible {
-      display: block;
-    }
-  </style>
-</head>
-<body>
-
-  <div id="loading">
-    <div class="spinner"></div>
-    <p>Iniciando cámara…</p>
-  </div>
-
-  <button id="audio-btn">🔊 Activar sonido</button>
-
-  <div id="ui">
-    <div id="status">📷 Apuntá la cámara al marcador personalizado</div>
-    <div id="hint">Necesitás el marcador impreso o en otra pantalla</div>
-  </div>
-
-  <!-- Escena con detectionMode: mono y sin debug -->
-  <a-scene
-    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono;"
-    renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true; precision: mediump;"
-    vr-mode-ui="enabled: false"
-    loading-screen="enabled: false"
-  >
-
-    <!-- Marcador original (video.patt) con demo.mp4 -->
-    <a-marker type="pattern" url="./assets/video.patt" smoothing-factor="0.5">
-      <a-video
-        id="ar-video"
-        src="./assets/demo.mp4"
-        width="6.4"
-        height="3.6"
-        position="0 0 0"
-        rotation="-90 0 0"
-        muted
-        autoplay
-        loop
-        playsinline
-        webkit-playsinline
-        preload="auto"
-      ></a-video>
-    </a-marker>
-
-    <!-- NUEVO marcador (hiro.patt) con demo2.mp4 -->
-    <a-marker type="pattern" url="./assets/hiro.patt" smoothing-factor="0.5">
-      <a-video
-        id="ar-video2"
-        src="./assets/demo2.mp4"
-        width="6.4"
-        height="3.6"
-        position="0 0 0"
-        rotation="-90 0 0"
-        muted
-        autoplay
-        loop
-        playsinline
-        webkit-playsinline
-        preload="auto"
-      ></a-video>
-    </a-marker>
-
-    <!-- 🆕 TERCER MARCADOR (videounilib.patt) con demo3.mp4, ANCHO DOBLE -->
-    <a-marker type="pattern" url="./assets/videounilib.patt" smoothing-factor="0.5">
-      <a-video
-        id="ar-video3"
-        src="./assets/demo3.mp4"
-        width="12.8"
-        height="3.6"
-        position="0 0 0"
-        rotation="-90 0 0"
-        muted
-        autoplay
-        loop
-        playsinline
-        webkit-playsinline
-        preload="auto"
-      ></a-video>
-    </a-marker>
-
-    <a-entity camera></a-entity>
-
-  </a-scene>
-
-  <script>
-    const status    = document.getElementById('status');
-    const hint      = document.getElementById('hint');
-    const loading   = document.getElementById('loading');
-    const audioBtn  = document.getElementById('audio-btn');
-
-    // Contador de marcadores encontrados
-    let foundCount = 0;
-
-    // Obtiene todos los marcadores
-    const markers = document.querySelectorAll('a-marker');
-
-    // Función auxiliar para obtener el elemento <video> real de un <a-video>
-    function getVideoElement(entity) {
-      if (!entity) return null;
-      try {
-        const material = entity.components.material;
-        if (material && material.material && material.material.map) {
-          const img = material.material.map.image;
-          if (img && img.tagName === 'VIDEO') return img;
-        }
-      } catch (e) {}
-      const videoChild = entity.querySelector('video');
-      return videoChild || null;
-    }
-
-    // Activa el sonido en TODOS los videos visibles (hasta 5 reintentos si no están listos)
-    function activarSonido(intentos = 0) {
-      const videoEntities = document.querySelectorAll('a-video');
-      let algunoActivado = false;
-      videoEntities.forEach(entity => {
-        const video = getVideoElement(entity);
-        if (video) {
-          video.muted = false;
-          video.play().catch(err => console.warn('Error al reproducir:', err));
-          algunoActivado = true;
-        }
-      });
-      if (algunoActivado) {
-        audioBtn.classList.remove('visible');
-      } else if (intentos < 5) {
-        setTimeout(() => activarSonido(intentos + 1), 200);
-      } else {
-        alert('No se pudo activar el sonido. Tocá la pantalla y volvé a intentar.');
-      }
-    }
-
-    // Actualiza la interfaz según el número de marcadores visibles
-    function actualizarUI() {
-      if (foundCount > 0) {
-        status.textContent = '✨ ¡Video reproduciéndose!';
-        status.classList.add('found');
-        hint.textContent = 'Mové el teléfono para verlo en 3D';
-        audioBtn.classList.add('visible');
-      } else {
-        status.textContent = '📷 Apuntá la cámara al marcador personalizado';
-        status.classList.remove('found');
-        hint.textContent = 'Necesitás el marcador impreso o en otra pantalla';
-        audioBtn.classList.remove('visible');
-      }
-    }
-
-    // Asignamos eventos a cada marcador
-    markers.forEach(marker => {
-      marker.addEventListener('markerFound', () => {
-        foundCount++;
-        if (foundCount === 1) actualizarUI();
-      });
-      marker.addEventListener('markerLost', () => {
-        foundCount--;
-        if (foundCount === 0) actualizarUI();
-      });
-    });
-
-    const scene = document.querySelector('a-scene');
-    scene.addEventListener('loaded', () => {
-      setTimeout(() => loading.classList.add('hidden'), 800);
-    });
-
-    audioBtn.addEventListener('click', activarSonido);
-  </script>
-
-</body>
-</html>
+<!-- Marcador 3: videounilib.patt / demo3.mp4 -->
+<a-marker type="pattern" url="./assets/videounilib.patt" smoothing-factor="0.5">
+  <a-video
+    id="ar-video3"
+    src="./assets/demo3.mp4"
+    width="12.8"
+    height="7.2"
+    position="0 0 0"
+    rotation="0 0 0"
+    muted autoplay loop playsinline webkit-playsinline preload="auto"
+  ></a-video>
+</a-marker>
