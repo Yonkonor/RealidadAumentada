@@ -140,6 +140,7 @@
     <div id="hint">Necesitás el marcador impreso o en otra pantalla</div>
   </div>
 
+  <!-- Escena con detectionMode: mono y sin debug -->
   <a-scene
     arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono;"
     renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true; precision: mediump;"
@@ -147,42 +148,57 @@
     loading-screen="enabled: false"
   >
 
-    <!-- Marcador 1: video.patt / demo.mp4 -->
+    <!-- Marcador original (video.patt) con demo.mp4 -->
     <a-marker type="pattern" url="./assets/video.patt" smoothing-factor="0.5">
       <a-video
         id="ar-video"
         src="./assets/demo.mp4"
-        width="12.8"
-        height="7.2"
+        width="3.6"
+        height="6.4"
         position="0 0 0"
-        rotation="0 0 0"
-        muted autoplay loop playsinline webkit-playsinline preload="auto"
+        rotation="-90 0 0"
+        muted
+        autoplay
+        loop
+        playsinline
+        webkit-playsinline
+        preload="auto"
       ></a-video>
     </a-marker>
 
-    <!-- Marcador 2: hiro.patt / demo2.mp4 -->
+    <!-- Segundo marcador (hiro.patt) con demo2.mp4 -->
     <a-marker type="pattern" url="./assets/hiro.patt" smoothing-factor="0.5">
       <a-video
         id="ar-video2"
         src="./assets/demo2.mp4"
-        width="12.8"
-        height="7.2"
+        width="3.6"
+        height="6.4"
         position="0 0 0"
-        rotation="0 0 0"
-        muted autoplay loop playsinline webkit-playsinline preload="auto"
+        rotation="-90 0 0"
+        muted
+        autoplay
+        loop
+        playsinline
+        webkit-playsinline
+        preload="auto"
       ></a-video>
     </a-marker>
 
-    <!-- Marcador 3: videounilib.patt / demo3.mp4 -->
-    <a-marker type="pattern" url="./assets/videounilib.patt" smoothing-factor="0.5">
+    <!-- Tercer marcador (unilib.patt) con demo3.mp4 -->
+    <a-marker type="pattern" url="./assets/unilib.patt" smoothing-factor="0.5">
       <a-video
         id="ar-video3"
         src="./assets/demo3.mp4"
-        width="12.8"
-        height="7.2"
+        width="3.6"
+        height="6.4"
         position="0 0 0"
-        rotation="0 0 0"
-        muted autoplay loop playsinline webkit-playsinline preload="auto"
+        rotation="-90 0 0"
+        muted
+        autoplay
+        loop
+        playsinline
+        webkit-playsinline
+        preload="auto"
       ></a-video>
     </a-marker>
 
